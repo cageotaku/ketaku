@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f6f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121418" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="케타쿠 수익">
+<meta name="format-detection" content="telephone=no">
+<title>케타쿠 수익</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<script src="config.js"></script>
+<style>
+:root {
+  color-scheme: light dark;
+  --canvas: #f4f6f8;
+  --raised: #ffffff;
+  --ink: #15181d;
+  --ink-2: #4a515c;
+  --ink-3: #646b77;
+  --hair: #dde2e8;
+  --base: #c4cbd4;
+  --yt: #d8323c;
+  --toon: #2a68d4;
+  --on-toon: #ffffff;
+  --press: rgba(21, 24, 29, 0.06);
+  --scrim: rgba(10, 12, 16, 0.38);
+  --gap: 2px;
+  --pad: 20px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #121418;
+    --raised: #1b1e24;
+    --ink: #eef1f5;
+    --ink-2: #b4bbc6;
+    --ink-3: #8b929d;
+    --hair: #272b32;
+    --base: #3a404a;
+    --yt: #ef5b63;
+    --toon: #5a92f2;
+    --on-toon: #0b1220;
+    --press: rgba(238, 241, 245, 0.08);
+    --scrim: rgba(0, 0, 0, 0.55);
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  word-break: keep-all;
+  -webkit-tap-highlight-color: transparent;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--toon); outline-offset: 2px; border-radius: 6px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ── 잠금 화면 ── */
+.lock {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: calc(24px + var(--safe-t)) var(--pad) calc(24px + var(--safe-b));
+}
+.lock-inner { width: 100%; max-width: 360px; }
+.lock-icon { width: 64px; height: 64px; border-radius: 15px; display: block; margin-bottom: 18px; }
+.lock h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 6px; }
+.lock-sub { margin: 0 0 22px; color: var(--ink-2); }
+.field { display: block; margin-bottom: 14px; font-size: 13px; color: var(--ink-2); }
+.field input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px 14px;
+  font-size: 17px;
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  outline: none;
+}
+.field input:focus { border-color: var(--toon); }
+#lock-pin { letter-spacing: 0.3em; font-size: 22px; text-align: center; }
+.error { color: var(--ink); background: var(--press); border-left: 3px solid var(--ink); padding: 8px 10px; border-radius: 6px; font-size: 14px; margin: 0 0 14px; }
+.primary {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--canvas);
+  font-size: 17px;
+  font-weight: 700;
+}
+.primary:disabled { opacity: 0.5; }
+.secondary {
+  display: block;
+  width: 100%;
+  padding: 13px 16px;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 600;
+}
+.linkish { background: none; border: 0; padding: 12px 0; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; font-size: 14px; }
+
+/* ── 메인 ── */
+.main { max-width: 560px; margin: 0 auto; padding: calc(10px + var(--safe-t)) var(--pad) calc(120px + var(--safe-b)); }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; }
+.topbar h1 { font-size: 17px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+.status-line { margin: 1px 0 0; font-size: 12px; color: var(--ink-3); }
+.top-actions { display: flex; gap: 4px; }
+.icon-btn {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 12px; background: transparent;
+}
+.icon-btn:active { background: var(--press); }
+.icon-btn svg { width: 22px; height: 22px; stroke: var(--ink); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.spinning svg { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.banner { margin: 6px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--press); font-size: 13px; color: var(--ink-2); }
+.banner b { color: var(--ink); }
+
+.segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; margin: 10px 0 22px; background: var(--press); border-radius: 12px; }
+.segmented button { border: 1px solid transparent; background: transparent; border-radius: 9px; padding: 8px 0; font-size: 15px; font-weight: 600; color: var(--ink-2); }
+.segmented button[aria-selected="true"] { background: var(--raised); color: var(--ink); border-color: var(--hair); }
+
+/* 히어로: 선택한 기간의 합계 */
+.hero { margin-bottom: 30px; }
+.period-row { display: flex; align-items: center; gap: 4px; margin-left: -10px; }
+.period-row h2 { font-size: 17px; font-weight: 700; margin: 0; }
+.nav-btn { width: 36px; height: 40px; border: 0; background: transparent; border-radius: 10px; display: grid; place-items: center; }
+.nav-btn svg { width: 18px; height: 18px; stroke: var(--ink-2); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.nav-btn:disabled { opacity: 0.25; }
+.nav-btn:active:not(:disabled) { background: var(--press); }
+.chip { font-size: 12px; font-weight: 600; color: var(--ink-2); border: 1px solid var(--hair); border-radius: 999px; padding: 2px 8px; margin-left: 4px; }
+.total { margin: 6px 0 18px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+.total .n { font-size: 46px; }
+.total .u { font-size: 24px; margin-left: 2px; letter-spacing: 0; }
+
+/* 레드 코너(유튜브) vs 블루 코너(투네이션) */
+.tape-top, .tape-bottom { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.tape-top { font-size: 14px; color: var(--ink-2); margin-bottom: 8px; }
+.tape-top b { color: var(--ink); font-weight: 700; margin: 0 4px; }
+.corner { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.sw.yt { background: var(--yt); }
+.sw.toon { background: var(--toon); }
+.tape-bar { display: flex; gap: var(--gap); height: 14px; }
+.tape-bar .seg { height: 100%; min-width: 0; transition: flex-basis 0.35s ease; }
+.tape-bar .seg.yt { background: var(--yt); border-radius: 5px 0 0 5px; }
+.tape-bar .seg.toon { background: var(--toon); border-radius: 0 5px 5px 0; }
+.tape-bar .seg.solo { border-radius: 5px; }
+.tape-bar.empty { background: var(--press); border-radius: 5px; }
+.tape-bottom { margin-top: 8px; font-size: 16px; font-weight: 600; }
+.context { margin: 16px 0 0; font-size: 14px; color: var(--ink-2); }
+.note { margin: 6px 0 0; font-size: 13px; color: var(--ink-3); }
+
+/* 차트 */
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 10px; }
+.sec-head h3 { font-size: 15px; font-weight: 700; margin: 0; }
+.legend { display: flex; gap: 12px; font-size: 13px; color: var(--ink-2); }
+.chart { position: relative; margin-bottom: 30px; transition: opacity 0.2s; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .grid { stroke: var(--hair); stroke-width: 1; }
+.chart .baseline { stroke: var(--base); stroke-width: 1; }
+.chart .tick { fill: var(--ink-3); font-size: 11px; }
+.chart .xl { fill: var(--ink-3); font-size: 11px; text-anchor: middle; }
+.chart .xl.on { fill: var(--ink); font-weight: 700; }
+.chart .vlabel { fill: var(--ink); font-size: 12px; font-weight: 700; text-anchor: middle; }
+.chart .col { transition: opacity 0.2s; }
+.chart .col.dim { opacity: 0.4; }
+@media (prefers-color-scheme: dark) { .chart .col.dim { opacity: 0.5; } }
+.chart .hit { fill: transparent; cursor: pointer; outline: none; }
+.chart .hit:focus-visible { fill: var(--press); stroke: var(--toon); stroke-width: 2; }
+.chart .yt { fill: var(--yt); }
+.chart .toon { fill: var(--toon); }
+.tip {
+  position: absolute; pointer-events: none; z-index: 2;
+  background: var(--raised); border: 1px solid var(--hair); border-radius: 10px;
+  padding: 8px 10px; font-size: 12px; min-width: 150px; color: var(--ink-2);
+}
+.tip strong { display: block; color: var(--ink); font-size: 14px; margin-bottom: 2px; }
+.tip .row { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+.tip .key { display: inline-flex; align-items: center; gap: 6px; }
+.tip .key i { width: 12px; height: 2px; display: inline-block; }
+.refreshing .chart, .refreshing .hero, .refreshing .list { opacity: 0.55; }
+
+/* 목록 (차트의 표 버전) */
+.list { list-style: none; margin: 0 0 30px; padding: 0; border-top: 1px solid var(--hair); }
+.list li { border-bottom: 1px solid var(--hair); }
+.row-btn { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; width: 100%; text-align: left; padding: 11px 8px; margin: 0 -8px; width: calc(100% + 16px); background: transparent; border: 0; border-radius: 10px; }
+.row-btn:active { background: var(--press); }
+.row-btn[aria-current="true"] { background: var(--press); }
+.row-btn .lbl { font-size: 15px; font-weight: 600; }
+.row-btn .tot { font-size: 15px; font-weight: 700; text-align: right; }
+.row-btn .split { grid-column: 1 / -1; display: flex; gap: 14px; font-size: 13px; color: var(--ink-2); }
+.row-btn .split span { display: inline-flex; align-items: center; gap: 5px; }
+.row-btn .split .sw { width: 8px; height: 8px; border-radius: 2px; }
+.pending { color: var(--ink-3); }
+
+/* 투네이션 기록 */
+.entries { list-style: none; margin: 0 0 24px; padding: 0; border-top: 1px solid var(--hair); }
+.entries li { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 12px; padding: 6px 0 6px 2px; border-bottom: 1px solid var(--hair); min-height: 54px; }
+.entries .d { font-size: 14px; color: var(--ink-2); width: 44px; }
+.entries .m { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entries .a { font-size: 15px; font-weight: 700; }
+.del { width: 40px; height: 40px; border: 0; background: transparent; border-radius: 10px; display: grid; place-items: center; }
+.del:active { background: var(--press); }
+.del svg { width: 16px; height: 16px; stroke: var(--ink-3); stroke-width: 2; stroke-linecap: round; fill: none; }
+.more-btn { margin: -12px 0 24px; font-size: 15px; }
+.row-btn .lbl .chip { margin-left: 6px; vertical-align: 2px; }
+.empty-note { margin: 0 0 24px; padding: 16px 0; color: var(--ink-3); font-size: 14px; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.foot { font-size: 12px; color: var(--ink-3); margin: 8px 0 0; }
+
+/* 투네이션 기록 버튼 */
+.fab {
+  position: fixed; z-index: 5;
+  right: max(var(--pad), calc((100vw - 560px) / 2 + var(--pad)));
+  bottom: calc(18px + var(--safe-b));
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 14px 20px 14px 16px;
+  border: 0; border-radius: 999px;
+  background: var(--toon); color: var(--on-toon);
+  font-size: 16px; font-weight: 700;
+  box-shadow: 0 6px 18px rgba(20, 50, 110, 0.28);
+}
+.fab svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; fill: none; }
+.fab:active { transform: scale(0.97); }
+
+/* 아래에서 올라오는 시트 */
+.sheet { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; }
+.sheet-backdrop { position: absolute; inset: 0; background: var(--scrim); opacity: 0; transition: opacity 0.25s; }
+.sheet-panel {
+  position: relative; width: 100%; max-width: 560px; max-height: 92vh; overflow: auto;
+  background: var(--raised); border-radius: 18px 18px 0 0;
+  padding: 8px var(--pad) calc(20px + var(--safe-b));
+  transform: translateY(100%); transition: transform 0.28s cubic-bezier(.2,.8,.2,1);
+}
+.sheet.open .sheet-backdrop { opacity: 1; }
+.sheet.open .sheet-panel { transform: none; }
+.grabber { width: 38px; height: 5px; border-radius: 3px; background: var(--hair); margin: 0 auto 14px; }
+.sheet h2 { font-size: 20px; font-weight: 800; margin: 0 0 18px; letter-spacing: -0.01em; }
+.amount-wrap { position: relative; }
+.amount-wrap input { font-size: 28px !important; font-weight: 800; padding-right: 44px !important; letter-spacing: -0.01em; }
+.amount-wrap span { position: absolute; right: 14px; bottom: 14px; font-size: 18px; font-weight: 700; color: var(--ink-2); }
+.date-row { display: flex; gap: 8px; margin-top: 6px; }
+.date-row input { flex: 1; margin-top: 0 !important; min-width: 0; }
+.chip-btn { border: 1px solid var(--hair); background: transparent; border-radius: 12px; padding: 0 14px; font-size: 15px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.chip-btn[aria-pressed="true"] { background: var(--ink); color: var(--canvas); border-color: var(--ink); }
+.sheet-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: 8px; }
+.settings-group { padding: 16px 0; border-top: 1px solid var(--hair); }
+.settings-group h3 { font-size: 15px; margin: 0 0 4px; }
+.settings-group p { margin: 0 0 12px; font-size: 13px; color: var(--ink-2); }
+.choice { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; background: var(--press); border-radius: 12px; margin-bottom: 12px; }
+.choice button { border: 1px solid transparent; background: transparent; border-radius: 9px; padding: 9px 0; font-size: 15px; font-weight: 600; color: var(--ink-2); }
+.choice button[aria-pressed="true"] { background: var(--raised); color: var(--ink); border-color: var(--hair); }
+.info { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
+.info dt { color: var(--ink-3); }
+.info dd { margin: 0; text-align: right; }
+
+.toast {
+  position: fixed; z-index: 20; left: 50%; bottom: calc(86px + var(--safe-b));
+  transform: translate(-50%, 12px); opacity: 0; pointer-events: none;
+  max-width: calc(100vw - 40px); padding: 11px 16px; border-radius: 12px;
+  background: var(--ink); color: var(--canvas); font-size: 14px; font-weight: 600;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+
+<section id="lock" class="lock" hidden>
+  <div class="lock-inner">
+    <img class="lock-icon" src="icon-180.png" alt="">
+    <h1>케타쿠 수익</h1>
+    <p class="lock-sub" id="lock-sub">구글 시트에서 정한 숫자 PIN을 입력하세요.</p>
+    <form id="lock-form" novalidate>
+      <label class="field" id="url-field" hidden>서버 주소 (Apps Script 웹 앱 주소)
+        <input id="lock-url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
+      </label>
+      <label class="field">PIN
+        <input id="lock-pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="current-password" maxlength="20">
+      </label>
+      <p id="lock-error" class="error" role="alert" hidden></p>
+      <button id="lock-submit" class="primary" type="submit">열기</button>
+    </form>
+    <button id="lock-demo" class="linkish" type="button">예시 데이터로 둘러보기</button>
+    <p class="foot"><a href="privacy.html" style="color:inherit">개인정보처리방침</a> · <a href="terms.html" style="color:inherit">이용약관</a></p>
+  </div>
+</section>
+
+<main id="main" class="main" hidden>
+  <header class="topbar">
+    <div>
+      <h1>케타쿠 수익</h1>
+      <p id="status-line" class="status-line">불러오는 중</p>
+    </div>
+    <div class="top-actions">
+      <button id="btn-refresh" class="icon-btn" type="button" aria-label="새로고침">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+      </button>
+      <button id="btn-settings" class="icon-btn" type="button" aria-label="설정">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" role="status" hidden></div>
+
+  <div class="segmented" role="tablist" aria-label="기간 단위">
+    <button type="button" role="tab" data-view="month" aria-selected="true">월별</button>
+    <button type="button" role="tab" data-view="week" aria-selected="false">주별</button>
+    <button type="button" role="tab" data-view="day" aria-selected="false">일별</button>
+  </div>
+
+  <section class="hero" id="hero" aria-live="polite">
+    <div class="period-row">
+      <button id="prev" class="nav-btn" type="button" aria-label="이전 기간"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <h2 id="period-label">—</h2>
+      <span id="period-chip" class="chip" hidden>이번 달</span>
+      <button id="next" class="nav-btn" type="button" aria-label="다음 기간"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+    <p class="total" id="total"><span class="n">0</span><span class="u">원</span></p>
+    <div class="tape-top">
+      <span class="corner"><i class="sw yt"></i>유튜브<b id="yt-pct">0%</b></span>
+      <span class="corner"><b id="toon-pct">0%</b>투네이션<i class="sw toon"></i></span>
+    </div>
+    <div class="tape-bar" id="tape" role="img" aria-label="">
+      <span class="seg yt" id="seg-yt"></span><span class="seg toon" id="seg-toon"></span>
+    </div>
+    <div class="tape-bottom">
+      <span id="yt-val" class="num">0원</span>
+      <span id="toon-val" class="num">0원</span>
+    </div>
+    <p id="context" class="context"></p>
+    <p id="lag" class="note"></p>
+  </section>
+
+  <section aria-labelledby="chart-title">
+    <div class="sec-head">
+      <h3 id="chart-title">최근 12개월</h3>
+      <div class="legend" aria-hidden="true"><span class="corner"><i class="sw yt"></i>유튜브</span><span class="corner"><i class="sw toon"></i>투네이션</span></div>
+    </div>
+    <div id="chart" class="chart"></div>
+  </section>
+
+  <section aria-labelledby="entries-title">
+    <div class="sec-head"><h3 id="entries-title">이 기간 투네이션 기록</h3><span id="entries-count" class="legend"></span></div>
+    <ul id="entries" class="entries"></ul>
+    <button id="entries-more" class="secondary more-btn" type="button" hidden></button>
+    <p id="entries-empty" class="empty-note" hidden>이 기간에 기록한 투네이션 후원이 없어요. 오른쪽 아래 버튼으로 기록하세요.</p>
+  </section>
+  <section aria-labelledby="list-title">
+    <div class="sec-head"><h3 id="list-title">월별 기록</h3></div>
+    <ol id="period-list" class="list"></ol>
+  </section>
+
+  <p class="foot" id="foot">유튜브는 유튜브 스튜디오의 예상 수익 기준이에요. <a href="privacy.html" style="color:inherit">개인정보처리방침</a></p>
+</main>
+
+<button id="fab" class="fab" type="button" hidden aria-label="투네이션 후원 기록하기">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>투네이션
+</button>
+
+<div id="sheet-add" class="sheet" role="dialog" aria-modal="true" aria-labelledby="add-title" hidden>
+  <div class="sheet-backdrop" data-close></div>
+  <form class="sheet-panel" id="add-form" novalidate>
+    <div class="grabber"></div>
+    <h2 id="add-title">투네이션 후원 기록</h2>
+    <label class="field">금액
+      <span class="amount-wrap"><input id="add-amount" inputmode="numeric" autocomplete="off" placeholder="0"><span>원</span></span>
+    </label>
+    <div class="field">날짜
+      <div class="date-row">
+        <input id="add-date" type="date" aria-label="날짜">
+        <button type="button" class="chip-btn" data-offset="0">오늘</button>
+        <button type="button" class="chip-btn" data-offset="-1">어제</button>
+      </div>
+    </div>
+    <label class="field">메모 (선택)
+      <input id="add-memo" maxlength="100" autocomplete="off" placeholder="예: 블랙컴뱃 라이브">
+    </label>
+    <p id="add-error" class="error" role="alert" hidden></p>
+    <div class="sheet-actions">
+      <button type="button" class="secondary" data-close>취소</button>
+      <button type="submit" class="primary" id="add-submit">기록하기</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheet-settings" class="sheet" role="dialog" aria-modal="true" aria-labelledby="set-title" hidden>
+  <div class="sheet-backdrop" data-close></div>
+  <div class="sheet-panel">
+    <div class="grabber"></div>
+    <h2 id="set-title">설정</h2>
+    <div class="settings-group" style="border-top:0;padding-top:0">
+      <h3>투네이션 금액 기준</h3>
+      <p>수수료를 빼고 보면 실제로 받을 금액에 가깝게 보여요. 기록은 입력한 금액 그대로 남아요.</p>
+      <div class="choice" role="group" aria-label="투네이션 금액 기준">
+        <button type="button" data-mode="gross" aria-pressed="true">후원액 그대로</button>
+        <button type="button" data-mode="net" aria-pressed="false">수수료 빼고</button>
+      </div>
+      <label class="field" id="fee-field">수수료율 (%)
+        <input id="fee" inputmode="decimal" autocomplete="off" placeholder="예: 10">
+      </label>
+    </div>
+    <div class="settings-group">
+      <h3>유튜브 수익</h3>
+      <p>매일 아침 7시쯤 자동으로 새로 가져와요. 지금 바로 가져오려면 아래 버튼을 누르세요. (10분에 한 번)</p>
+      <button type="button" class="secondary" id="btn-yt-refresh">유튜브 수익 지금 가져오기</button>
+    </div>
+    <div class="settings-group">
+      <h3>연결 정보</h3>
+      <dl class="info" id="info"></dl>
+    </div>
+    <div class="settings-group">
+      <button type="button" class="secondary" id="btn-logout">PIN 다시 입력하기</button>
+      <p class="foot" style="margin-top:12px">케타쿠 수익 앱 1.0</p>
+    </div>
+    <button type="button" class="primary" data-close>닫기</button>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ───────── 설정 · 저장소 ───────── */
+  var CFG = window.KETAKU_CONFIG || {};
+  var TZ = 'Asia/Seoul';
+  var KEY = { pin: 'ketaku.pin', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view' };
+  var DOW = ['일', '월', '화', '수', '목', '금', '토'];
+
+  function save(k, v) {
+    try {
+      if (v === null || v === undefined) localStorage.removeItem(k);
+      else localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+    } catch (e) { /* 저장 공간이 막혀 있어도 앱은 동작 */ }
+  }
+  function load(k, asJson) {
+    try {
+      var v = localStorage.getItem(k);
+      if (!asJson) return v;
+      return v ? JSON.parse(v) : null;
+    } catch (e) { return null; }
+  }
+  function serverUrl() { return String(CFG.SERVER_URL || load(KEY.url) || '').trim(); }
+
+  var state = {
+    data: null,
+    idx: null,
+    demo: false,
+    view: load(KEY.view) || 'month',
+    selected: {},
+    busy: false,
+    lastFetch: 0,
+    settings: Object.assign({ toonMode: 'gross', fee: 0 }, load(KEY.settings, true) || {})
+  };
+  if (['month', 'week', 'day'].indexOf(state.view) < 0) state.view = 'month';
+
+  /* ───────── 날짜 도구 (한국 시간 기준, 문자열 YYYY-MM-DD) ───────── */
+  function pad(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
+  function today() {
+    var parts = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
+      .formatToParts(new Date()).forEach(function (p) { parts[p.type] = p.value; });
+    return parts.year + '-' + parts.month + '-' + parts.day;
+  }
+  function parse(s) { var p = s.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2], 12)); }
+  function fmt(d) { return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()); }
+  function addDays(s, n) { var d = parse(s); d.setUTCDate(d.getUTCDate() + n); return fmt(d); }
+  function addMonthsKey(k, n) { var p = k.split('-'); var d = new Date(Date.UTC(+p[0], +p[1] - 1 + n, 1, 12)); return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1); }
+  function lastDay(k) { var p = k.split('-'); return k + '-' + pad(new Date(Date.UTC(+p[0], +p[1], 0)).getUTCDate()); }
+  function monday(s) { var dow = parse(s).getUTCDay(); return addDays(s, -((dow + 6) % 7)); }
+  function md(s) { var p = s.split('-'); return (+p[1]) + '월 ' + (+p[2]) + '일'; }
+  function dow(s) { return DOW[parse(s).getUTCDay()]; }
+
+  var VIEWS = {
+    month: {
+      key: function (d) { return d.slice(0, 7); },
+      start: function (k) { return k + '-01'; },
+      end: function (k) { return lastDay(k); },
+      prev: function (k) { return addMonthsKey(k, -1); },
+      next: function (k) { return addMonthsKey(k, 1); },
+      label: function (k) { var p = k.split('-'); return p[0] + '년 ' + (+p[1]) + '월'; },
+      short: function (k) { return (+k.split('-')[1]) + '월'; },
+      chartN: 12, listN: 36, chartTitle: '최근 12개월', listTitle: '월별 기록',
+      prevName: '지난달', cmpName: '전월', curName: '이번 달'
+    },
+    week: {
+      key: function (d) { return monday(d); },
+      start: function (k) { return k; },
+      end: function (k) { return addDays(k, 6); },
+      prev: function (k) { return addDays(k, -7); },
+      next: function (k) { return addDays(k, 7); },
+      label: function (k) {
+        var e = addDays(k, 6);
+        return k.slice(5, 7) === e.slice(5, 7) ? md(k) + '–' + (+e.slice(8)) + '일' : md(k) + '–' + md(e);
+      },
+      short: function (k) { return (+k.slice(5, 7)) + '/' + (+k.slice(8)); },
+      chartN: 12, listN: 26, chartTitle: '최근 12주 (월~일)', listTitle: '주별 기록',
+      prevName: '지난주', cmpName: '전주', curName: '이번 주'
+    },
+    day: {
+      key: function (d) { return d; },
+      start: function (k) { return k; },
+      end: function (k) { return k; },
+      prev: function (k) { return addDays(k, -1); },
+      next: function (k) { return addDays(k, 1); },
+      label: function (k) { return md(k) + ' (' + dow(k) + ')'; },
+      short: function (k) { return String(+k.slice(8)); },
+      chartN: 14, listN: 60, chartTitle: '최근 14일', listTitle: '일별 기록',
+      prevName: '어제', cmpName: '전날', curName: '오늘'
+    }
+  };
+
+  /* ───────── 숫자 표기 ───────── */
+  function won(n) { return Math.round(n).toLocaleString('ko-KR') + '원'; }
+  function plain(n) { return Math.round(n).toLocaleString('ko-KR'); }
+  function compact(n) {
+    if (n >= 100000000) return trim1(n / 100000000) + '억';
+    if (n >= 10000) return trim1(n / 10000) + '만';
+    return plain(n);
+  }
+  function trim1(x) { var r = Math.round(x * 10) / 10; return (r % 1 === 0 ? r.toFixed(0) : r.toFixed(1)); }
+  function niceScale(max) {
+    if (!(max > 0)) return { max: 100000, step: 50000 };
+    var pow = Math.pow(10, Math.floor(Math.log10(max)));
+    var steps = [0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10];
+    for (var i = 0; i < steps.length; i++) {
+      var step = steps[i] * pow;
+      if (max / step <= 4) return { max: Math.ceil(max / step) * step, step: step };
+    }
+    return { max: max, step: max / 4 };
+  }
+
+  /* ───────── 데이터 인덱스 · 합계 ───────── */
+  function buildIndex(data) {
+    var yt = {}, toon = {}, first = null;
+    (data.yt || []).forEach(function (r) {
+      yt[r[0]] = Number(r[1]) || 0;
+      if (!first || r[0] < first) first = r[0];
+    });
+    (data.toon || []).forEach(function (t) {
+      (toon[t.d] = toon[t.d] || []).push(t);
+      if (!first || t.d < first) first = t.d;
+    });
+    return { yt: yt, toon: toon, first: first || today(), ytLatest: data.ytLatest || '' };
+  }
+  function toonFactor() {
+    var f = Number(state.settings.fee) || 0;
+    return state.settings.toonMode === 'net' ? Math.max(0, 1 - f / 100) : 1;
+  }
+  function sumRange(start, end) {
+    var idx = state.idx, yt = 0, toon = 0;
+    if (!idx) return { yt: 0, toon: 0, total: 0 };
+    for (var d = start; d <= end; d = addDays(d, 1)) {
+      if (idx.yt[d]) yt += idx.yt[d];
+      var list = idx.toon[d];
+      if (list) for (var i = 0; i < list.length; i++) toon += Number(list[i].a) || 0;
+    }
+    toon = Math.round(toon * toonFactor());
+    return { yt: yt, toon: toon, total: yt + toon };
+  }
+  function periodSum(view, k) {
+    var V = VIEWS[view];
+    var end = V.end(k), t = today();
+    return sumRange(V.start(k), end < t ? end : t);
+  }
+  function currentKey(view) { return VIEWS[view].key(today()); }
+  function selectedKey() {
+    var k = state.selected[state.view];
+    var cur = currentKey(state.view);
+    if (!k || k > cur) k = cur;
+    return k;
+  }
+
+  /* ───────── 그리기 ───────── */
+  var $ = function (id) { return document.getElementById(id); };
+
+  function render() {
+    if (!state.data) return;
+    var view = state.view, V = VIEWS[view];
+    var key = selectedKey(), cur = currentKey(view);
+    document.querySelectorAll('.segmented button').forEach(function (b) {
+      b.setAttribute('aria-selected', String(b.getAttribute('data-view') === view));
+    });
+    renderStatus();
+    renderHero(view, key, cur);
+    renderChart(view, key, cur);
+    renderList(view, key, cur);
+    renderEntries(view, key);
+    $('chart-title').textContent = V.chartTitle;
+    $('list-title').textContent = V.listTitle;
+  }
+
+  function renderStatus() {
+    var d = state.data, line;
+    if (state.demo) line = '예시 데이터예요';
+    else if (d.updatedAt) {
+      var day = d.updatedAt.slice(0, 10), time = d.updatedAt.slice(11, 16), t = today();
+      line = (day === t ? '오늘 ' : day === addDays(t, -1) ? '어제 ' : md(day) + ' ') + time + ' 업데이트';
+    } else line = '아직 업데이트 기록이 없어요';
+    $('status-line').textContent = line;
+  }
+
+  function renderHero(view, key, cur) {
+    var V = VIEWS[view];
+    var s = periodSum(view, key);
+    $('period-label').textContent = V.label(key);
+    $('period-chip').textContent = V.curName;
+    $('period-chip').hidden = key !== cur;
+    $('next').disabled = key >= cur;
+    $('prev').disabled = V.end(V.prev(key)) < state.idx.first;
+    $('total').querySelector('.n').textContent = plain(s.total);
+
+    var tape = $('tape'), sy = $('seg-yt'), st = $('seg-toon');
+    var ytPct = s.total > 0 ? Math.round(s.yt / s.total * 100) : 0;
+    var toonPct = s.total > 0 ? 100 - ytPct : 0;
+    tape.classList.toggle('empty', s.total === 0);
+    sy.style.flex = '0 0 calc(' + (s.total > 0 ? s.yt / s.total * 100 : 0) + '% - 1px)';
+    st.style.flex = '1 1 0';
+    sy.hidden = s.yt <= 0;
+    st.hidden = s.toon <= 0;
+    sy.classList.toggle('solo', s.toon <= 0);
+    st.classList.toggle('solo', s.yt <= 0);
+    if (s.yt > 0 && s.toon <= 0) sy.style.flex = '1 1 0';
+    tape.setAttribute('aria-label', '유튜브 ' + ytPct + '%, 투네이션 ' + toonPct + '%');
+    $('yt-pct').textContent = ytPct + '%';
+    $('toon-pct').textContent = toonPct + '%';
+    $('yt-val').textContent = won(s.yt);
+    $('toon-val').textContent = won(s.toon);
+
+    // 비교 문장
+    var prevKey = V.prev(key), prev = periodSum(view, prevKey), ctx = '';
+    if (key === cur) {
+      ctx = V.prevName + ' ' + (view === 'day' ? '' : '전체 ') + won(prev.total);
+    } else if (prev.total > 0) {
+      var diff = (s.total - prev.total) / prev.total * 100;
+      var r = Math.round(Math.abs(diff));
+      ctx = V.cmpName + ' ' + won(prev.total) + (r === 0 ? '과 거의 같아요' : '보다 ' + r + '% ' + (diff > 0 ? '늘었어요' : '줄었어요'));
+    } else {
+      ctx = V.cmpName + ' 기록이 없어요';
+    }
+    $('context').textContent = ctx;
+
+    // 유튜브 반영 지연 안내
+    var lag = '', latest = state.idx.ytLatest, end = V.end(key), t = today();
+    if (state.demo) latest = state.data.ytLatest;
+    if (!latest) {
+      lag = '유튜브 수익 데이터가 아직 없어요. 구글 시트 메뉴의 연결 상태를 확인해주세요.';
+    } else if (V.start(key) > latest && V.start(key) <= t) {
+      lag = '유튜브 수익은 아직 집계 전이에요. 구글이 약 2일 늦게 공개해요 (' + md(latest) + '까지 반영).';
+    } else if (end > latest && V.start(key) <= t) {
+      lag = '유튜브는 ' + md(latest) + '까지 반영됐어요. 구글이 약 2일 늦게 공개해요.';
+    }
+    if (state.settings.toonMode === 'net') lag += (lag ? ' ' : '') + '투네이션은 수수료 ' + (Number(state.settings.fee) || 0) + '%를 뺀 금액이에요.';
+    $('lag').textContent = lag;
+    $('lag').hidden = !lag;
+  }
+
+  function chartKeys(view, key, cur) {
+    var V = VIEWS[view], keys = [], k = cur, i;
+    for (i = 0; i < V.chartN; i++) { keys.unshift(k); k = V.prev(k); }
+    if (keys.indexOf(key) < 0) {
+      keys = []; k = key;
+      for (i = 0; i < V.chartN; i++) { keys.unshift(k); k = V.prev(k); }
+    }
+    return keys;
+  }
+
+  function svgEl(tag, attrs) {
+    var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (var a in attrs) el.setAttribute(a, attrs[a]);
+    return el;
+  }
+  function topRounded(x, y, w, h, r) {
+    r = Math.min(r, h, w / 2);
+    return 'M' + x + ',' + (y + h) + 'V' + (y + r) + 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y +
+      'H' + (x + w - r) + 'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) + 'V' + (y + h) + 'Z';
+  }
+
+  function renderChart(view, key, cur) {
+    var V = VIEWS[view], box = $('chart');
+    var keys = chartKeys(view, key, cur);
+    var sums = keys.map(function (k) { return periodSum(view, k); });
+    var W = Math.max(280, box.clientWidth || 360), PT = 24, PH = 150, XB = 24, LG = 40;
+    var H = PT + PH + XB, plotW = W - LG;
+    var max = 0; sums.forEach(function (s) { if (s.total > max) max = s.total; });
+    var sc = niceScale(max);
+    var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'group', 'aria-label': V.chartTitle + ' 막대 차트' });
+    var base = PT + PH;
+    for (var v = 0; v <= sc.max + 1e-6; v += sc.step) {
+      var y = Math.round(base - v / sc.max * PH) + 0.5;
+      svg.appendChild(svgEl('line', { x1: LG, x2: W, y1: y, y2: y, 'class': v === 0 ? 'baseline' : 'grid' }));
+      var t = svgEl('text', { x: LG - 8, y: y + 4, 'text-anchor': 'end', 'class': 'tick' });
+      t.textContent = v === 0 ? '0' : compact(v);
+      svg.appendChild(t);
+    }
+    var slot = plotW / keys.length, bw = Math.min(24, Math.max(8, slot * 0.58));
+    var showEvery = slot < 30 && view === 'week' ? 2 : 1;
+    keys.forEach(function (k, i) {
+      var s = sums[i], cx = LG + slot * (i + 0.5), x = cx - bw / 2;
+      var g = svgEl('g', { 'class': 'col' + (k === key ? '' : ' dim') });
+      var hy = s.yt / sc.max * PH, ht = s.toon / sc.max * PH;
+      if (hy > 0) {
+        var ytTopRound = ht <= 0;
+        g.appendChild(svgEl('path', { 'class': 'yt', d: ytTopRound ? topRounded(x, base - hy, bw, hy, 4) : 'M' + x + ',' + base + 'V' + (base - hy) + 'H' + (x + bw) + 'V' + base + 'Z' }));
+      }
+      if (ht > 0) {
+        var gap = hy > 0 ? 2 : 0, top = base - hy - ht, h = ht - gap;
+        if (h < 1) { h = 1; }
+        g.appendChild(svgEl('path', { 'class': 'toon', d: topRounded(x, top, bw, h, 4) }));
+      }
+      svg.appendChild(g);
+      if (k === key && s.total > 0) {
+        var half = compact(s.total).length * 3.8 + 2;
+        var lx = Math.min(Math.max(cx, LG + half), W - half);
+        // 이웃 막대와 겹치지 않도록, 라벨이 걸치는 막대들 중 가장 높은 것 위에 둠
+        var reach = 0;
+        sums.forEach(function (o, j) {
+          var ox = LG + slot * (j + 0.5);
+          if (Math.abs(ox - lx) < half + bw / 2 + 2 && o.total > reach) reach = o.total;
+        });
+        var lbl = svgEl('text', { x: lx, y: base - reach / sc.max * PH - 7, 'class': 'vlabel' });
+        lbl.textContent = compact(s.total);
+        svg.appendChild(lbl);
+      }
+      if (i % showEvery === (keys.length - 1) % showEvery || k === key) {
+        var xl = svgEl('text', { x: cx, y: base + 17, 'class': 'xl' + (k === key ? ' on' : '') });
+        xl.textContent = V.short(k);
+        svg.appendChild(xl);
+      }
+      var hit = svgEl('rect', { x: LG + slot * i, y: 0, width: slot, height: H, 'class': 'hit', tabindex: '0', role: 'button',
+        'aria-label': V.label(k) + ' 합계 ' + won(s.total) + ', 유튜브 ' + won(s.yt) + ', 투네이션 ' + won(s.toon) });
+      hit.addEventListener('click', function () { selectKey(k); });
+      hit.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectKey(k); } });
+      hit.addEventListener('pointermove', function (e) { if (e.pointerType === 'mouse') showTip(e, V.label(k), s); });
+      hit.addEventListener('pointerleave', hideTip);
+      svg.appendChild(hit);
+    });
+    box.textContent = '';
+    box.appendChild(svg);
+    var tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; tip.id = 'tip';
+    box.appendChild(tip);
+  }
+
+  function showTip(e, label, s) {
+    var tip = $('tip'), box = $('chart');
+    if (!tip) return;
+    tip.textContent = '';
+    var strong = document.createElement('strong'); strong.textContent = won(s.total); tip.appendChild(strong);
+    var cap = document.createElement('div'); cap.textContent = label; cap.style.marginBottom = '4px'; tip.appendChild(cap);
+    [['유튜브', s.yt, 'var(--yt)'], ['투네이션', s.toon, 'var(--toon)']].forEach(function (r) {
+      var row = document.createElement('div'); row.className = 'row';
+      var keyEl = document.createElement('span'); keyEl.className = 'key';
+      var line = document.createElement('i'); line.style.background = r[2]; keyEl.appendChild(line);
+      keyEl.appendChild(document.createTextNode(r[0]));
+      var val = document.createElement('span'); val.className = 'num'; val.textContent = won(r[1]);
+      row.appendChild(keyEl); row.appendChild(val); tip.appendChild(row);
+    });
+    tip.hidden = false;
+    var rect = box.getBoundingClientRect();
+    var x = e.clientX - rect.left + 12, y = e.clientY - rect.top - 10;
+    if (x + 170 > rect.width) x = e.clientX - rect.left - 182;
+    tip.style.left = x + 'px'; tip.style.top = Math.max(0, y) + 'px';
+  }
+  function hideTip() { var tip = $('tip'); if (tip) tip.hidden = true; }
+
+  function renderList(view, key, cur) {
+    var V = VIEWS[view], ol = $('period-list'), k = cur, n = 0, latest = state.idx.ytLatest;
+    ol.textContent = '';
+    while (n < V.listN && V.end(k) >= state.idx.first) {
+      var s = periodSum(view, k);
+      var li = document.createElement('li');
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'row-btn';
+      if (k === key) b.setAttribute('aria-current', 'true');
+      var l = document.createElement('span'); l.className = 'lbl'; l.textContent = V.label(k);
+      if (k === cur) { var chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = V.curName; l.appendChild(chip); }
+      var t = document.createElement('span'); t.className = 'tot num'; t.textContent = won(s.total);
+      var sp = document.createElement('span'); sp.className = 'split num';
+      var a = document.createElement('span'); a.innerHTML = '<i class="sw yt"></i>';
+      var pendingYt = view === 'day' && latest && k > latest;
+      a.appendChild(document.createTextNode(pendingYt ? '유튜브 집계 전' : '유튜브 ' + plain(s.yt)));
+      if (pendingYt) a.classList.add('pending');
+      var c = document.createElement('span'); c.innerHTML = '<i class="sw toon"></i>';
+      c.appendChild(document.createTextNode('투네이션 ' + plain(s.toon)));
+      sp.appendChild(a); sp.appendChild(c);
+      b.appendChild(l); b.appendChild(t); b.appendChild(sp);
+      (function (kk) { b.addEventListener('click', function () { selectKey(kk, true); }); })(k);
+      li.appendChild(b); ol.appendChild(li);
+      k = V.prev(k); n++;
+    }
+  }
+
+  function renderEntries(view, key) {
+    var V = VIEWS[view], start = V.start(key), end = V.end(key), list = [];
+    Object.keys(state.idx.toon).forEach(function (d) {
+      if (d >= start && d <= end) list = list.concat(state.idx.toon[d]);
+    });
+    list.sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : 0; });
+    var ul = $('entries'), more = $('entries-more'), LIMIT = 5;
+    var expanded = state.expanded === view + ':' + key;
+    ul.textContent = '';
+    $('entries-count').textContent = list.length ? list.length + '건' : '';
+    $('entries-empty').hidden = list.length > 0;
+    more.hidden = list.length <= LIMIT;
+    more.textContent = expanded ? '접기' : list.length + '건 모두 보기';
+    more.onclick = function () { state.expanded = expanded ? null : view + ':' + key; renderEntries(view, key); };
+    (expanded ? list : list.slice(0, LIMIT)).forEach(function (t) {
+      var li = document.createElement('li');
+      var d = document.createElement('span'); d.className = 'd num'; d.textContent = (+t.d.slice(5, 7)) + '/' + (+t.d.slice(8));
+      var m = document.createElement('span'); m.className = 'm'; m.textContent = t.m ? String(t.m).replace(/^'/, '') : '투네이션 후원';
+      var a = document.createElement('span'); a.className = 'a num'; a.textContent = won(t.a);
+      var del = document.createElement('button'); del.type = 'button'; del.className = 'del';
+      del.setAttribute('aria-label', md(t.d) + ' ' + won(t.a) + ' 기록 삭제');
+      del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      del.addEventListener('click', function () { removeEntry(t); });
+      li.appendChild(d); li.appendChild(m); li.appendChild(a); li.appendChild(del);
+      ul.appendChild(li);
+    });
+  }
+
+  function selectKey(k, scrollUp) {
+    state.selected[state.view] = k;
+    hideTip();
+    render();
+    if (scrollUp) window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+
+  /* ───────── 서버 통신 ───────── */
+  function api(action, extra) {
+    if (state.demo) return Promise.resolve(demoApi(action, extra || {}));
+    var url = serverUrl();
+    var body = Object.assign({ pin: load(KEY.pin), action: action }, extra || {});
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 30000) : null;
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body),
+      redirect: 'follow',
+      cache: 'no-store',
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (res) {
+      return res.text().then(function (text) {
+        try { return JSON.parse(text); }
+        catch (e) { throw new Error('서버 응답을 읽지 못했어요. 웹 앱 배포의 액세스 권한이 "모든 사용자"인지 확인해주세요.'); }
+      });
+    }).finally(function () { if (timer) clearTimeout(timer); });
+  }
+
+  function handleAuthError(res) {
+    if (res && (res.error === 'PIN' || res.error === 'LOCKED')) {
+      save(KEY.pin, null);
+      showLock(res.message || 'PIN을 다시 입력해주세요.');
+      return true;
+    }
+    return false;
+  }
+
+  function applyData(d) {
+    state.data = d;
+    state.idx = buildIndex(d);
+    if (!state.demo) save(KEY.cache, d);
+    render();
+    var banner = $('banner');
+    if (d.lastError && !state.demo) {
+      banner.textContent = '';
+      var b = document.createElement('b'); b.textContent = '유튜브 업데이트 오류 ';
+      banner.appendChild(b);
+      banner.appendChild(document.createTextNode(d.lastError + ' (구글 시트 메뉴 → 연결 상태 보기)'));
+      banner.hidden = false;
+    } else if (!state.demo) banner.hidden = true;
+  }
+
+  function refresh(action) {
+    if (state.busy) return Promise.resolve();
+    state.busy = true;
+    $('btn-refresh').classList.add('spinning');
+    $('main').classList.add('refreshing');
+    return api(action || 'summary').then(function (res) {
+      if (handleAuthError(res)) return;
+      if (!res || !res.ok) {
+        showBanner(res && res.message ? res.message : '데이터를 가져오지 못했어요.');
+        return;
+      }
+      state.lastFetch = Date.now();
+      applyData(res);
+      if (res.notice) toast(res.notice);
+    }).catch(function (err) {
+      showBanner(err && err.name === 'AbortError'
+        ? '서버 응답이 너무 늦어요. 잠시 뒤 새로고침을 눌러주세요.'
+        : (err && err.message && /서버 응답/.test(err.message) ? err.message : '서버에 연결하지 못했어요. 인터넷 연결을 확인한 뒤 새로고침을 눌러주세요.'));
+    }).finally(function () {
+      state.busy = false;
+      $('btn-refresh').classList.remove('spinning');
+      $('main').classList.remove('refreshing');
+    });
+  }
+
+  function showBanner(msg) {
+    var banner = $('banner');
+    banner.textContent = msg + (state.data ? ' 지금 보이는 숫자는 마지막으로 받은 데이터예요.' : '');
+    banner.hidden = false;
+  }
+
+  /* ───────── 화면 전환 ───────── */
+  function showLock(message) {
+    $('main').hidden = true;
+    $('fab').hidden = true;
+    $('lock').hidden = false;
+    $('url-field').hidden = !!CFG.SERVER_URL;
+    if (!CFG.SERVER_URL) $('lock-url').value = load(KEY.url) || '';
+    $('lock-pin').value = '';
+    var err = $('lock-error');
+    err.textContent = message || '';
+    err.hidden = !message;
+  }
+  function showMain() {
+    $('lock').hidden = true;
+    $('main').hidden = false;
+    $('fab').hidden = false;
+  }
+
+  $('lock-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var pin = $('lock-pin').value.trim(), err = $('lock-error');
+    if (!CFG.SERVER_URL) {
+      var u = $('lock-url').value.trim();
+      if (!/^https?:\/\//.test(u)) { err.textContent = '서버 주소를 붙여넣어 주세요. (https://script.google.com/macros/s/… 로 시작해요)'; err.hidden = false; return; }
+      save(KEY.url, u);
+    }
+    if (!/^\d{4,}$/.test(pin)) { err.textContent = '숫자 PIN을 입력해주세요.'; err.hidden = false; return; }
+    state.demo = false;
+    save(KEY.pin, pin);
+    $('lock-submit').disabled = true;
+    $('lock-submit').textContent = '여는 중';
+    api('summary').then(function (res) {
+      if (res && res.ok) { state.lastFetch = Date.now(); showMain(); applyData(res); return; }
+      save(KEY.pin, null);
+      err.textContent = (res && res.message) || '열지 못했어요.';
+      err.hidden = false;
+    }).catch(function () {
+      save(KEY.pin, null);
+      err.textContent = '서버에 연결하지 못했어요. 서버 주소와 인터넷 연결을 확인해주세요.';
+      err.hidden = false;
+    }).finally(function () {
+      $('lock-submit').disabled = false;
+      $('lock-submit').textContent = '열기';
+    });
+  });
+
+  $('lock-demo').addEventListener('click', function () {
+    state.demo = true;
+    showMain();
+    applyData(makeDemo());
+    var banner = $('banner');
+    banner.textContent = '예시 데이터예요. 설정 → PIN 다시 입력하기로 내 데이터를 열 수 있어요.';
+    banner.hidden = false;
+  });
+
+  document.querySelectorAll('.segmented button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.view = b.getAttribute('data-view');
+      save(KEY.view, state.view);
+      hideTip();
+      render();
+    });
+  });
+  $('prev').addEventListener('click', function () { selectKey(VIEWS[state.view].prev(selectedKey())); });
+  $('next').addEventListener('click', function () {
+    var n = VIEWS[state.view].next(selectedKey());
+    if (n <= currentKey(state.view)) selectKey(n);
+  });
+  $('btn-refresh').addEventListener('click', function () { refresh('summary'); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && !$('main').hidden && !state.demo && Date.now() - state.lastFetch > 5 * 60 * 1000) refresh('summary');
+  });
+  var resizeTimer;
+  window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+
+  /* ───────── 시트(아래에서 올라오는 창) ───────── */
+  function openSheet(id) {
+    var sh = $(id);
+    sh.hidden = false;
+    requestAnimationFrame(function () { requestAnimationFrame(function () { sh.classList.add('open'); }); });
+  }
+  function closeSheet(id) {
+    var sh = $(id);
+    sh.classList.remove('open');
+    setTimeout(function () { sh.hidden = true; }, 280);
+  }
+  document.querySelectorAll('.sheet').forEach(function (sh) {
+    sh.addEventListener('click', function (e) {
+      if (e.target.closest('[data-close]')) closeSheet(sh.id);
+    });
+    sh.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(sh.id); });
+  });
+
+  // 투네이션 기록
+  function setDate(offset) {
+    var v = addDays(today(), offset);
+    $('add-date').value = v;
+    markDateChips();
+  }
+  function markDateChips() {
+    var v = $('add-date').value;
+    document.querySelectorAll('.chip-btn[data-offset]').forEach(function (c) {
+      c.setAttribute('aria-pressed', String(addDays(today(), +c.getAttribute('data-offset')) === v));
+    });
+  }
+  $('fab').addEventListener('click', function () {
+    $('add-amount').value = '';
+    $('add-memo').value = '';
+    $('add-error').hidden = true;
+    var V = VIEWS[state.view], key = selectedKey(), t = today();
+    // 지금 보고 있는 기간이 과거면 그 기간의 마지막 날을 기본 날짜로
+    setDate(0);
+    if (V.end(key) < t) { $('add-date').value = V.end(key); markDateChips(); }
+    openSheet('sheet-add');
+    setTimeout(function () { $('add-amount').focus(); }, 300);
+  });
+  document.querySelectorAll('.chip-btn[data-offset]').forEach(function (c) {
+    c.addEventListener('click', function () { setDate(+c.getAttribute('data-offset')); });
+  });
+  $('add-date').addEventListener('change', markDateChips);
+  $('add-amount').addEventListener('input', function (e) {
+    var digits = e.target.value.replace(/[^\d]/g, '').replace(/^0+/, '').slice(0, 10);
+    e.target.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
+  });
+  $('add-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var amount = Number($('add-amount').value.replace(/[^\d]/g, ''));
+    var date = $('add-date').value, memo = $('add-memo').value.trim(), err = $('add-error');
+    if (!amount) { err.textContent = '금액을 입력해주세요.'; err.hidden = false; return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { err.textContent = '날짜를 골라주세요.'; err.hidden = false; return; }
+    if (date > today()) { err.textContent = '오늘 이후 날짜는 기록할 수 없어요.'; err.hidden = false; return; }
+    var btn = $('add-submit');
+    btn.disabled = true; btn.textContent = '기록하는 중';
+    api('addToon', { date: date, amount: amount, memo: memo }).then(function (res) {
+      if (handleAuthError(res)) { closeSheet('sheet-add'); return; }
+      if (!res || !res.ok) { err.textContent = (res && res.message) || '기록하지 못했어요.'; err.hidden = false; return; }
+      applyData(res);
+      // 기록한 날짜가 들어 있는 기간을 보여줌
+      state.selected[state.view] = VIEWS[state.view].key(date);
+      render();
+      closeSheet('sheet-add');
+      toast(res.notice || '기록했어요.');
+    }).catch(function () {
+      err.textContent = '서버에 연결하지 못했어요. 인터넷 연결을 확인한 뒤 다시 눌러주세요.';
+      err.hidden = false;
+    }).finally(function () { btn.disabled = false; btn.textContent = '기록하기'; });
+  });
+
+  function removeEntry(t) {
+    if (!window.confirm(md(t.d) + ' ' + won(t.a) + ' 기록을 삭제할까요?')) return;
+    api('deleteToon', { id: t.id }).then(function (res) {
+      if (handleAuthError(res)) return;
+      if (!res || !res.ok) { toast((res && res.message) || '삭제하지 못했어요.'); return; }
+      applyData(res);
+      toast(res.notice || '삭제했어요.');
+    }).catch(function () { toast('서버에 연결하지 못했어요.'); });
+  }
+
+  // 설정
+  function syncSettingsUi() {
+    document.querySelectorAll('.choice button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-mode') === state.settings.toonMode));
+    });
+    $('fee-field').hidden = state.settings.toonMode !== 'net';
+    $('fee').value = state.settings.fee ? String(state.settings.fee) : '';
+    var d = state.data || {}, info = $('info');
+    info.textContent = '';
+    [['채널', d.channel || (state.demo ? '예시' : '—')],
+     ['마지막 업데이트', d.updatedAt || '—'],
+     ['유튜브 최신 반영일', d.ytLatest || '—'],
+     ['서버 버전', d.version || '—']].forEach(function (r) {
+      var dt = document.createElement('dt'); dt.textContent = r[0];
+      var dd = document.createElement('dd'); dd.textContent = r[1];
+      info.appendChild(dt); info.appendChild(dd);
+    });
+  }
+  $('btn-settings').addEventListener('click', function () { syncSettingsUi(); openSheet('sheet-settings'); });
+  document.querySelectorAll('.choice button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.settings.toonMode = b.getAttribute('data-mode');
+      save(KEY.settings, state.settings);
+      syncSettingsUi();
+      render();
+    });
+  });
+  $('fee').addEventListener('input', function (e) {
+    var v = parseFloat(e.target.value.replace(/[^\d.]/g, ''));
+    state.settings.fee = isFinite(v) ? Math.min(Math.max(v, 0), 100) : 0;
+    save(KEY.settings, state.settings);
+    render();
+  });
+  $('btn-yt-refresh').addEventListener('click', function () {
+    closeSheet('sheet-settings');
+    refresh('refresh');
+  });
+  $('btn-logout').addEventListener('click', function () {
+    save(KEY.pin, null);
+    save(KEY.cache, null);
+    state.data = null; state.demo = false;
+    closeSheet('sheet-settings');
+    $('banner').hidden = true;
+    showLock();
+  });
+
+  var toastTimer;
+  function toast(msg) {
+    var el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2600);
+  }
+
+  /* ───────── 예시 데이터 (서버 없이 둘러보기) ───────── */
+  function makeDemo() {
+    var t = today(), latest = addDays(t, -2), yt = [], toon = [], seed = 7;
+    function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+    var start = addMonthsKey(t.slice(0, 7), -23) + '-01';
+    for (var d = start, i = 0; d <= latest; d = addDays(d, 1), i++) {
+      var growth = 0.7 + i / 1100, wd = parse(d).getUTCDay();
+      var v = (30000 + rnd() * 26000) * growth * (wd === 0 || wd === 6 ? 1.25 : 1);
+      yt.push([d, Math.round(v), Math.round(v * 0.82)]);
+      if ((wd === 2 || wd === 4 || wd === 6) && rnd() > 0.15) {
+        var n = 1 + Math.floor(rnd() * 3);
+        for (var j = 0; j < n; j++) {
+          toon.push({ id: 'demo' + i + '_' + j, d: d, a: Math.round((5 + rnd() * 45) * growth) * 1000, m: '라이브 후원' });
+        }
+      }
+    }
+    return { ok: true, demo: true, channel: '예시 채널', updatedAt: t + ' 07:02', ytLatest: latest, version: 'demo', yt: yt, toon: toon };
+  }
+  function demoApi(action, extra) {
+    var d = state.data;
+    if (action === 'addToon') {
+      d.toon.push({ id: 'demo' + Date.now(), d: extra.date, a: extra.amount, m: extra.memo || '' });
+      return Object.assign({}, d, { notice: '투네이션 ' + plain(extra.amount) + '원을 기록했어요. (예시)' });
+    }
+    if (action === 'deleteToon') {
+      d.toon = d.toon.filter(function (x) { return x.id !== extra.id; });
+      return Object.assign({}, d, { notice: '삭제했어요. (예시)' });
+    }
+    return Object.assign({}, d, action === 'refresh' ? { notice: '예시 데이터에서는 새로 가져오지 않아요.' } : {});
+  }
+
+  /* ───────── 시작 ───────── */
+  (function start() {
+    var pin = load(KEY.pin);
+    if (!pin || !serverUrl()) { showLock(); return; }
+    showMain();
+    var cached = load(KEY.cache, true);
+    if (cached && cached.ok) applyData(cached);
+    refresh('summary');
+  })();
+})();
+</script>
+</body>
+</html>
