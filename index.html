@@ -145,6 +145,7 @@ button { cursor: pointer; }
 .segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; margin: 10px 0 22px; background: var(--press); border-radius: 12px; }
 .segmented button { border: 1px solid transparent; background: transparent; border-radius: 9px; padding: 8px 0; font-size: 15px; font-weight: 600; color: var(--ink-2); }
 .segmented button[aria-selected="true"] { background: var(--raised); color: var(--ink); border-color: var(--hair); }
+.segmented.two { grid-template-columns: repeat(2, 1fr); margin: 0 0 18px; }
 
 /* 히어로: 선택한 기간의 합계 */
 .hero { margin-bottom: 30px; }
@@ -406,6 +407,11 @@ button { cursor: pointer; }
     <div id="chart" class="chart"></div>
   </section>
 
+  <div class="segmented two" id="don-src" role="tablist" aria-label="후원 출처" hidden>
+    <button type="button" role="tab" data-src="0" aria-selected="true">투네이션</button>
+    <button type="button" role="tab" data-src="1" aria-selected="false">유튜브 슈퍼챗</button>
+  </div>
+
   <section aria-labelledby="don-title" id="don-sec" hidden>
     <div class="sec-head"><h3 id="don-title">이 기간 후원 내역</h3><span id="don-count" class="legend num"></span></div>
     <ul id="don-list" class="dons"></ul>
@@ -563,9 +569,10 @@ button { cursor: pointer; }
     busy: false,
     lastFetch: 0,
     donorQuery: '',
-    settings: Object.assign({ toonMode: 'gross', fee: 0 }, load(KEY.settings, true) || {})
+    settings: Object.assign({ toonMode: 'gross', fee: 0, donorSrc: 0 }, load(KEY.settings, true) || {})
   };
   if (['month', 'week', 'day'].indexOf(state.view) < 0) state.view = 'month';
+  state.settings.donorSrc = state.settings.donorSrc === 1 ? 1 : 0; // 후원 명단 출처: 0 투네이션 · 1 유튜브 슈퍼챗
 
   /* ───────── 날짜 도구 (한국 시간 기준, 문자열 YYYY-MM-DD) ───────── */
   function pad(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
@@ -706,7 +713,7 @@ button { cursor: pointer; }
     if (!state.data) return;
     var view = state.view, V = VIEWS[view];
     var key = selectedKey(), cur = currentKey(view);
-    document.querySelectorAll('.segmented button').forEach(function (b) {
+    document.querySelectorAll('.segmented [data-view]').forEach(function (b) {
       b.setAttribute('aria-selected', String(b.getAttribute('data-view') === view));
     });
     renderStatus();
@@ -976,16 +983,31 @@ button { cursor: pointer; }
     });
   }
 
+  // 후원 명단은 출처별로 나눠 보여 줌 (0 투네이션 · 1 유튜브 슈퍼챗)
+  function donorSrc() { return state.settings.donorSrc === 1 ? 1 : 0; }
+  var SRC_TEXT = [
+    { don: '이 기간 후원 내역', rank: '이 기간 후원자 순위', all: '역대 후원자 순위',
+      none: '이 기간에 받은 투네이션 후원이 없어요.', allNone: '아직 받은 투네이션 후원이 없어요.' },
+    { don: '이 기간 슈퍼챗 내역', rank: '이 기간 슈퍼챗 순위', all: '슈퍼챗 역대 순위',
+      none: '이 기간에 받은 슈퍼챗이 없어요.', allNone: '아직 모은 슈퍼챗이 없어요.' }
+  ];
+
   function renderDonations(view, key) {
-    var idx = state.idx;
+    var idx = state.idx, src = donorSrc();
+    $('don-src').hidden = !idx.hasDon;
     $('don-sec').hidden = !idx.hasDon;
     if (!idx.hasDon) return;
+    document.querySelectorAll('#don-src [data-src]').forEach(function (b) {
+      b.setAttribute('aria-selected', String(b.getAttribute('data-src') === String(src)));
+    });
+    $('don-title').textContent = SRC_TEXT[src].don;
     var r = periodRange(view, key);
-    var list = idx.dons.filter(function (x) { return x.d >= r[0] && x.d <= r[1]; });
+    var list = idx.dons.filter(function (x) { return x.s === src && x.d >= r[0] && x.d <= r[1]; });
     var sum = list.reduce(function (s, x) { return s + x.a; }, 0);
     $('don-count').textContent = list.length ? list.length + '건 · ' + won(sum) : '';
     $('don-empty').hidden = list.length > 0;
-    fillList($('don-list'), $('don-more'), list, 5, 'don:' + view + ':' + key, function (x) {
+    $('don-empty').textContent = SRC_TEXT[src].none;
+    fillList($('don-list'), $('don-more'), list, 5, 'don:' + src + ':' + view + ':' + key, function (x) {
       return donationButton(x);
     }, function () { renderDonations(view, key); });
   }
@@ -1011,52 +1033,56 @@ button { cursor: pointer; }
     return b;
   }
 
-  function renderRanking(view, key) {
-    var idx = state.idx;
-    $('rank-sec').hidden = !idx.hasDon;
-    if (!idx.hasDon) return;
-    var r = periodRange(view, key), m = {};
-    idx.dons.forEach(function (x) {
-      if (x.d < r[0] || x.d > r[1]) return;
-      var g = m[x.k] || (m[x.k] = { k: x.k, name: x.n, total: 0, count: 0, src: {} });
+  // 출처 하나의 후원을 사람별로 묶음 (내역이 최신순이라 처음 만난 닉네임이 가장 최근 닉네임)
+  function groupDonors(src, from, to) {
+    var m = {};
+    state.idx.dons.forEach(function (x) {
+      if (x.s !== src || (from && (x.d < from || x.d > to))) return;
+      var g = m[x.k] || (m[x.k] = { k: x.k, name: x.n, total: 0, count: 0, src: {}, last: x.t });
       g.total += x.a; g.count++; g.src[x.s] = true;
     });
     var groups = Object.keys(m).map(function (k) { return m[k]; });
-    groups.sort(function (a, b) { return b.total - a.total || b.count - a.count; });
+    groups.sort(function (a, b) { return b.total - a.total || b.count - a.count || (a.last < b.last ? 1 : a.last > b.last ? -1 : 0); });
+    return groups;
+  }
+
+  function renderRanking(view, key) {
+    var idx = state.idx, src = donorSrc();
+    $('rank-sec').hidden = !idx.hasDon;
+    if (!idx.hasDon) return;
+    $('rank-title').textContent = SRC_TEXT[src].rank;
+    var r = periodRange(view, key);
+    var groups = groupDonors(src, r[0], r[1]);
     $('rank-count').textContent = groups.length ? groups.length + '명' : '';
     $('rank-empty').hidden = groups.length > 0;
-    fillList($('rank-list'), $('rank-more'), groups, 5, 'rank:' + view + ':' + key, rankButton,
+    fillList($('rank-list'), $('rank-more'), groups, 5, 'rank:' + src + ':' + view + ':' + key, rankButton,
       function () { renderRanking(view, key); });
   }
 
   // 역대(전체 기간) 후원 합계 순위. 닉네임 검색은 이 목록에서 찾고, 찾은 사람의 역대 순위를 그대로 보여 줌
   function renderAllTime() {
-    var idx = state.idx;
+    var idx = state.idx, src = donorSrc();
     $('all-sec').hidden = !idx.hasDon;
     if (!idx.hasDon) return;
-    var all = Object.keys(idx.donors).map(function (k) {
-      var g = idx.donors[k];
-      return { k: k, name: g.names[0], total: g.total, count: g.count, src: g.src, last: g.last };
-    });
-    all.sort(function (a, b) { return b.total - a.total || b.count - a.count || (a.last < b.last ? 1 : a.last > b.last ? -1 : 0); });
+    var all = groupDonors(src);
     var sum = 0;
     all.forEach(function (g, i) { g.rank = i + 1; sum += g.total; });
     var q = (state.donorQuery || '').trim().toLowerCase();
     var list = !q ? all : all.filter(function (g) {
-      return idx.donors[g.k].names.some(function (n) { return n.toLowerCase().indexOf(q) >= 0; });
+      return (idx.donors[g.k] ? idx.donors[g.k].names : [g.name]).some(function (n) { return n.toLowerCase().indexOf(q) >= 0; });
     });
-    $('all-title').textContent = q ? '닉네임 검색 결과' : '역대 후원자 순위';
-    $('all-count').textContent = q ? (list.length ? list.length + '명' : '') : all.length + '명 · ' + won(sum);
-    // 슈퍼챗은 유튜브가 최근 30일치만 알려 줘서, 모으기 시작한 날부터의 기록만 있음
+    $('all-title').textContent = q ? '닉네임 검색 결과' : SRC_TEXT[src].all;
+    $('all-count').textContent = q ? (list.length ? list.length + '명' : '') : (all.length ? all.length + '명 · ' + won(sum) : '');
+    // 슈퍼챗은 유튜브가 처음 가져올 때 최근 30일치만 줘서, 모으기 시작한 날부터의 기록만 있음(그 뒤로는 계속 쌓임)
     var firstSc = '';
-    idx.dons.forEach(function (x) { if (x.s === 1 && (!firstSc || x.t < firstSc)) firstSc = x.t; });
+    if (src === 1) idx.dons.forEach(function (x) { if (x.s === 1 && (!firstSc || x.t < firstSc)) firstSc = x.t; });
     var note = $('all-note');
     note.hidden = !firstSc;
-    note.textContent = firstSc ? '슈퍼챗은 ' + firstSc.slice(0, 10).replace(/-/g, '.') + '부터 모은 기록이에요.' : '';
+    note.textContent = firstSc ? '슈퍼챗은 ' + firstSc.slice(0, 10).replace(/-/g, '.') + '부터 모은 기록이에요. 그 뒤로 오는 슈퍼챗은 계속 쌓여요.' : '';
     var empty = $('all-empty');
     empty.hidden = list.length > 0;
-    empty.textContent = q ? '“' + state.donorQuery.trim() + '” 닉네임으로 후원한 기록이 없어요.' : '';
-    fillList($('all-list'), $('all-more'), list, 10, 'rank:all' + (q ? ':q:' + q : ''), rankButton, renderAllTime);
+    empty.textContent = q ? '“' + state.donorQuery.trim() + '” 닉네임으로 후원한 기록이 없어요.' : SRC_TEXT[src].allNone;
+    fillList($('all-list'), $('all-more'), list, 10, 'rank:all:' + src + (q ? ':q:' + q : ''), rankButton, renderAllTime);
   }
 
   function openDonor(k) {
@@ -1279,12 +1305,25 @@ button { cursor: pointer; }
     banner.hidden = false;
   });
 
-  document.querySelectorAll('.segmented button').forEach(function (b) {
+  document.querySelectorAll('.segmented [data-view]').forEach(function (b) {
     b.addEventListener('click', function () {
       state.view = b.getAttribute('data-view');
       save(KEY.view, state.view);
       hideTip();
       render();
+    });
+  });
+  // 후원 명단: 투네이션 / 유튜브 슈퍼챗 나눠 보기 (고른 쪽은 기억)
+  document.querySelectorAll('#don-src [data-src]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.settings.donorSrc = b.getAttribute('data-src') === '1' ? 1 : 0;
+      save(KEY.settings, state.settings);
+      state.expanded = null;
+      if (!state.data) return;
+      var k = selectedKey();
+      renderDonations(state.view, k);
+      renderRanking(state.view, k);
+      renderAllTime();
     });
   });
   $('prev').addEventListener('click', function () { selectKey(VIEWS[state.view].prev(selectedKey())); });
