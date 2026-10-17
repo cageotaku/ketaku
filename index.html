@@ -11,9 +11,9 @@
 <meta name="apple-mobile-web-app-title" content="케타쿠 수익">
 <meta name="format-detection" content="telephone=no">
 <title>케타쿠 수익</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest?v=2">
+<link rel="apple-touch-icon" href="icon-180.png?v=2">
+<link rel="icon" type="image/png" href="icon-192.png?v=2">
 <script src="config.js"></script>
 <style>
 :root {
@@ -334,7 +334,7 @@ button { cursor: pointer; }
 
 <section id="lock" class="lock" hidden>
   <div class="lock-inner">
-    <img class="lock-icon" src="icon-180.png" alt="">
+    <img class="lock-icon" src="icon-180.png?v=2" alt="">
     <h1>케타쿠 수익</h1>
     <p class="lock-sub" id="lock-sub">구글 시트에서 정한 숫자 PIN을 입력하세요.<br>이 기기에서 한 번만 넣으면 다음부터는 묻지 않아요.</p>
     <p class="lock-hint" id="lock-hint" hidden>지금은 사파리 화면이에요. 사파리에서 넣은 PIN은 홈 화면 앱에 옮겨지지 않으니, 홈 화면에 추가한 앱에서 넣어주세요.</p>
@@ -734,7 +734,6 @@ button { cursor: pointer; }
     renderRanking(view, key);
     renderAllTime();
     renderEntries(view, key);
-    $('chart-title').textContent = V.chartTitle;
     $('list-title').textContent = V.listTitle;
   }
 
@@ -821,7 +820,12 @@ button { cursor: pointer; }
       keys = []; k = key;
       for (i = 0; i < V.chartN; i++) { keys.unshift(k); k = V.prev(k); }
     }
-    return keys;
+    // 보여 주는 시작일(SHOW_FROM) 이전 기간은 그래프에서도 뺌
+    return keys.filter(function (kk) { return V.end(kk) >= state.idx.first; });
+  }
+  function chartTitle(view, keys) {
+    var V = VIEWS[view];
+    return view === 'month' && keys.length && keys.length < V.chartN ? V.label(keys[0]) + '부터' : V.chartTitle;
   }
 
   function svgEl(tag, attrs) {
@@ -843,7 +847,9 @@ button { cursor: pointer; }
     var H = PT + PH + XB, plotW = W - LG;
     var max = 0; sums.forEach(function (s) { if (s.total > max) max = s.total; });
     var sc = niceScale(max);
-    var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'group', 'aria-label': V.chartTitle + ' 막대 차트' });
+    var title = chartTitle(view, keys);
+    $('chart-title').textContent = title;
+    var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'group', 'aria-label': title + ' 막대 차트' });
     var base = PT + PH;
     for (var v = 0; v <= sc.max + 1e-6; v += sc.step) {
       var y = Math.round(base - v / sc.max * PH) + 0.5;
