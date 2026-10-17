@@ -231,6 +231,39 @@ button { cursor: pointer; }
 .more-btn { margin: -12px 0 24px; font-size: 15px; }
 .row-btn .lbl .chip { margin-left: 6px; vertical-align: 2px; }
 .empty-note { margin: 0 0 24px; padding: 16px 0; color: var(--ink-3); font-size: 14px; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+
+/* 후원 내역 · 후원자 순위 */
+.dons { list-style: none; margin: 0 0 24px; padding: 0; border-top: 1px solid var(--hair); }
+.dons li { border-bottom: 1px solid var(--hair); }
+.don-btn {
+  display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 0 12px;
+  width: calc(100% + 16px); margin: 0 -8px; padding: 8px 8px; min-height: 56px;
+  text-align: left; background: transparent; border: 0; border-radius: 10px;
+}
+.don-btn:active { background: var(--press); }
+.don-btn .w { font-size: 14px; color: var(--ink-2); line-height: 1.25; }
+.don-btn .w small { display: block; font-size: 12px; color: var(--ink-3); }
+.don-btn .who { min-width: 0; line-height: 1.3; }
+.don-btn .nm { display: block; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.don-btn .src { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.don-btn .src .sw { width: 8px; height: 8px; border-radius: 2px; }
+.don-btn .amt { font-size: 15px; font-weight: 700; text-align: right; line-height: 1.3; white-space: nowrap; }
+.don-btn .amt small { display: block; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.don-btn.rank { grid-template-columns: 30px minmax(0, 1fr) auto; }
+.don-btn .rk { font-size: 15px; font-weight: 800; color: var(--ink-2); text-align: center; }
+.don-btn .rk.top { color: var(--ink); }
+.search { display: block; margin: 0 0 10px; }
+.search input {
+  width: 100%; padding: 10px 14px; font-size: 16px; color: var(--ink);
+  background: var(--raised); border: 1px solid var(--hair); border-radius: 12px; outline: none;
+}
+.search input:focus { border-color: var(--toon); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.donor-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; margin: 2px 0 20px; }
+.donor-stats .k { display: block; font-size: 12px; color: var(--ink-3); margin-bottom: 2px; }
+.donor-stats b { font-size: 17px; font-weight: 700; }
+.sheet h3.sub { font-size: 15px; margin: 0 0 8px; }
+.sheet .aka { margin: -12px 0 16px; font-size: 13px; color: var(--ink-2); }
 .foot { font-size: 12px; color: var(--ink-3); margin: 8px 0 0; }
 
 /* 투네이션 기록 버튼 */
@@ -370,7 +403,24 @@ button { cursor: pointer; }
     <div id="chart" class="chart"></div>
   </section>
 
-  <section aria-labelledby="entries-title">
+  <section aria-labelledby="don-title" id="don-sec" hidden>
+    <div class="sec-head"><h3 id="don-title">이 기간 후원 내역</h3><span id="don-count" class="legend num"></span></div>
+    <ul id="don-list" class="dons"></ul>
+    <button id="don-more" class="secondary more-btn" type="button" hidden></button>
+    <p id="don-empty" class="empty-note" hidden>이 기간에 받은 후원이 없어요.</p>
+  </section>
+
+  <section aria-labelledby="rank-title" id="rank-sec" hidden>
+    <div class="sec-head"><h3 id="rank-title">이 기간 후원자 순위</h3><span id="rank-count" class="legend num"></span></div>
+    <label class="search"><span class="sr">닉네임 검색</span>
+      <input id="donor-q" type="search" placeholder="닉네임으로 찾기 (전체 기간)" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+    </label>
+    <ol id="rank-list" class="dons"></ol>
+    <button id="rank-more" class="secondary more-btn" type="button" hidden></button>
+    <p id="rank-empty" class="empty-note" hidden></p>
+  </section>
+
+  <section aria-labelledby="entries-title" id="entries-sec">
     <div class="sec-head"><h3 id="entries-title">이 기간 투네이션 기록</h3><span id="entries-count" class="legend"></span></div>
     <ul id="entries" class="entries"></ul>
     <button id="entries-more" class="secondary more-btn" type="button" hidden></button>
@@ -381,7 +431,7 @@ button { cursor: pointer; }
     <ol id="period-list" class="list"></ol>
   </section>
 
-  <p class="foot" id="foot">유튜브는 유튜브 스튜디오의 예상 수익 기준이에요. <a href="privacy.html" style="color:inherit">개인정보처리방침</a></p>
+  <p class="foot" id="foot">유튜브는 유튜브 스튜디오의 예상 수익 기준이에요. 후원 내역의 슈퍼챗은 시청자가 낸 금액이고, 유튜브 몫을 뗀 금액이 유튜브 수익에 이미 들어 있어요. <a href="privacy.html" style="color:inherit">개인정보처리방침</a></p>
 </main>
 
 <button id="fab" class="fab" type="button" hidden aria-label="투네이션 후원 기록하기">
@@ -447,6 +497,25 @@ button { cursor: pointer; }
   </div>
 </div>
 
+<div id="sheet-donor" class="sheet" role="dialog" aria-modal="true" aria-labelledby="donor-title" hidden>
+  <div class="sheet-backdrop" data-close></div>
+  <div class="sheet-panel">
+    <div class="grabber"></div>
+    <h2 id="donor-title">—</h2>
+    <p id="donor-aka" class="aka" hidden></p>
+    <div class="donor-stats">
+      <div><span class="k">전체 후원</span><b id="donor-total" class="num">0원</b></div>
+      <div><span class="k">횟수</span><b id="donor-count" class="num">0회</b></div>
+      <div><span class="k">처음 후원</span><b id="donor-first" class="num">—</b></div>
+      <div><span class="k">최근 후원</span><b id="donor-last" class="num">—</b></div>
+    </div>
+    <h3 class="sub">후원 기록</h3>
+    <ul id="donor-list" class="dons"></ul>
+    <button id="donor-more" class="secondary more-btn" type="button" hidden></button>
+    <button type="button" class="primary" data-close>닫기</button>
+  </div>
+</div>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -482,6 +551,7 @@ button { cursor: pointer; }
     selected: {},
     busy: false,
     lastFetch: 0,
+    donorQuery: '',
     settings: Object.assign({ toonMode: 'gross', fee: 0 }, load(KEY.settings, true) || {})
   };
   if (['month', 'week', 'day'].indexOf(state.view) < 0) state.view = 'month';
@@ -573,7 +643,22 @@ button { cursor: pointer; }
       (toon[t.d] = toon[t.d] || []).push(t);
       if (!first || t.d < first) first = t.d;
     });
-    return { yt: yt, toon: toon, first: first || today(), ytLatest: data.ytLatest || '' };
+    // 후원 내역 [시각, 출처(0 투네이션·1 슈퍼챗), 닉네임, 금액, 원래 금액, 후원자, 종류] → 최신순
+    var dons = (data.don || []).map(function (r) {
+      var n = String(r[2] === undefined || r[2] === null ? '' : r[2]) || '익명';
+      return { t: String(r[0]), d: String(r[0]).slice(0, 10), s: Number(r[1]) || 0, n: n, a: Number(r[3]) || 0, o: r[4] || '', k: r[5] || ('N:' + n), ty: String(r[6] || '') };
+    }).filter(function (x) { return /^\d{4}-\d{2}-\d{2}/.test(x.t); });
+    dons.sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : 0; });
+    var donors = {};
+    dons.forEach(function (x) {
+      var g = donors[x.k] || (donors[x.k] = { k: x.k, names: [], total: 0, count: 0, first: x.t, last: x.t, src: {} });
+      if (g.names.indexOf(x.n) < 0) g.names.push(x.n); // 최신순이라 첫 이름이 가장 최근 닉네임
+      g.total += x.a; g.count++;
+      if (x.t < g.first) g.first = x.t;
+      if (x.t > g.last) g.last = x.t;
+      g.src[x.s] = true;
+    });
+    return { yt: yt, toon: toon, first: first || today(), ytLatest: data.ytLatest || '', dons: dons, donors: donors, hasDon: dons.length > 0 };
   }
   function toonFactor() {
     var f = Number(state.settings.fee) || 0;
@@ -617,6 +702,8 @@ button { cursor: pointer; }
     renderHero(view, key, cur);
     renderChart(view, key, cur);
     renderList(view, key, cur);
+    renderDonations(view, key);
+    renderRanking(view, key);
     renderEntries(view, key);
     $('chart-title').textContent = V.chartTitle;
     $('list-title').textContent = V.listTitle;
@@ -833,11 +920,149 @@ button { cursor: pointer; }
     }
   }
 
+  /* ───────── 후원 내역 · 후원자 ───────── */
+  function periodRange(view, key) {
+    var V = VIEWS[view], e = V.end(key), t = today();
+    return [V.start(key), e < t ? e : t];
+  }
+  function mdShort(d) { return (+d.slice(5, 7)) + '/' + (+d.slice(8, 10)); }
+  function srcLabel(x) { return x.s === 1 ? (x.ty === '슈퍼스티커' ? '슈퍼스티커' : '슈퍼챗') : '투네이션'; }
+  function srcSwatch(s) { return '<i class="sw ' + (s === 1 ? 'yt' : 'toon') + '"></i>'; }
+
+  // 한 줄: [날짜/시각] [닉네임 · 출처] [금액]
+  function donationButton(x, opts) {
+    opts = opts || {};
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'don-btn';
+    var w = document.createElement('span'); w.className = 'w num';
+    w.textContent = opts.withYear && x.d.slice(0, 4) !== today().slice(0, 4) ? x.d.slice(2, 4) + '/' + mdShort(x.d) : mdShort(x.d);
+    var tm = document.createElement('small'); tm.textContent = x.t.slice(11, 16); w.appendChild(tm);
+    var who = document.createElement('span'); who.className = 'who';
+    var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = x.n;
+    var src = document.createElement('span'); src.className = 'src'; src.innerHTML = srcSwatch(x.s);
+    src.appendChild(document.createTextNode(srcLabel(x)));
+    who.appendChild(nm); who.appendChild(src);
+    var amt = document.createElement('span'); amt.className = 'amt num';
+    amt.textContent = (x.o ? '약 ' : '') + won(x.a);
+    if (x.o) { var o = document.createElement('small'); o.textContent = x.o; amt.appendChild(o); }
+    b.appendChild(w); b.appendChild(who); b.appendChild(amt);
+    b.setAttribute('aria-label', md(x.d) + ' ' + x.t.slice(11, 16) + ', ' + x.n + ', ' + srcLabel(x) + ' ' + won(x.a));
+    if (!opts.noOpen) b.addEventListener('click', function () { openDonor(x.k); });
+    return b;
+  }
+
+  function fillList(ul, more, items, limit, expandKey, build, rerender) {
+    var expanded = state.expanded === expandKey;
+    ul.textContent = '';
+    more.hidden = items.length <= limit;
+    more.textContent = expanded ? '접기' : items.length + (expandKey.indexOf('rank') === 0 ? '명' : '건') + ' 모두 보기';
+    more.onclick = function () { state.expanded = expanded ? null : expandKey; rerender(); };
+    (expanded ? items : items.slice(0, limit)).forEach(function (it, i) {
+      var li = document.createElement('li');
+      li.appendChild(build(it, i));
+      ul.appendChild(li);
+    });
+  }
+
+  function renderDonations(view, key) {
+    var idx = state.idx;
+    $('don-sec').hidden = !idx.hasDon;
+    if (!idx.hasDon) return;
+    var r = periodRange(view, key);
+    var list = idx.dons.filter(function (x) { return x.d >= r[0] && x.d <= r[1]; });
+    var sum = list.reduce(function (s, x) { return s + x.a; }, 0);
+    $('don-count').textContent = list.length ? list.length + '건 · ' + won(sum) : '';
+    $('don-empty').hidden = list.length > 0;
+    fillList($('don-list'), $('don-more'), list, 5, 'don:' + view + ':' + key, function (x) {
+      return donationButton(x);
+    }, function () { renderDonations(view, key); });
+  }
+
+  function rankButton(g, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'don-btn rank';
+    var rk = document.createElement('span'); rk.className = 'rk num' + (i < 3 ? ' top' : ''); rk.textContent = String(i + 1);
+    var who = document.createElement('span'); who.className = 'who';
+    var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = g.name;
+    var all = state.idx.donors[g.k];
+    var src = document.createElement('span'); src.className = 'src';
+    var srcs = Object.keys(g.src).map(Number).sort();
+    src.innerHTML = srcs.map(srcSwatch).join('');
+    var extra = all && all.names.length > 1 ? ' · 다른 닉네임 ' + (all.names.length - 1) + '개' : '';
+    src.appendChild(document.createTextNode(g.count + '회' + extra));
+    who.appendChild(nm); who.appendChild(src);
+    var amt = document.createElement('span'); amt.className = 'amt num'; amt.textContent = won(g.total);
+    b.appendChild(rk); b.appendChild(who); b.appendChild(amt);
+    b.setAttribute('aria-label', (i + 1) + '위 ' + g.name + ', ' + g.count + '회, ' + won(g.total));
+    b.addEventListener('click', function () { openDonor(g.k); });
+    return b;
+  }
+
+  function renderRanking(view, key) {
+    var idx = state.idx;
+    $('rank-sec').hidden = !idx.hasDon;
+    if (!idx.hasDon) return;
+    var q = (state.donorQuery || '').trim().toLowerCase();
+    var groups = [];
+    if (q) {
+      Object.keys(idx.donors).forEach(function (k) {
+        var g = idx.donors[k];
+        if (g.names.some(function (n) { return n.toLowerCase().indexOf(q) >= 0; })) {
+          groups.push({ k: k, name: g.names[0], total: g.total, count: g.count, src: g.src });
+        }
+      });
+      $('rank-title').textContent = '닉네임 검색 결과';
+    } else {
+      var r = periodRange(view, key), m = {};
+      idx.dons.forEach(function (x) {
+        if (x.d < r[0] || x.d > r[1]) return;
+        var g = m[x.k] || (m[x.k] = { k: x.k, name: x.n, total: 0, count: 0, src: {} });
+        g.total += x.a; g.count++; g.src[x.s] = true;
+      });
+      groups = Object.keys(m).map(function (k) { return m[k]; });
+      $('rank-title').textContent = '이 기간 후원자 순위';
+    }
+    groups.sort(function (a, b) { return b.total - a.total || b.count - a.count; });
+    $('rank-count').textContent = groups.length ? groups.length + '명' : '';
+    var empty = $('rank-empty');
+    empty.hidden = groups.length > 0;
+    empty.textContent = q ? '“' + state.donorQuery.trim() + '” 닉네임으로 후원한 기록이 없어요.' : '이 기간에 후원한 사람이 없어요.';
+    fillList($('rank-list'), $('rank-more'), groups, 5, 'rank:' + (q ? 'q:' + q : view + ':' + key), rankButton,
+      function () { renderRanking(view, key); });
+  }
+
+  function openDonor(k) {
+    var g = state.idx.donors[k];
+    if (!g) return;
+    $('donor-title').textContent = g.names[0];
+    var aka = $('donor-aka');
+    aka.hidden = g.names.length < 2;
+    aka.textContent = g.names.length > 1 ? '다른 닉네임: ' + g.names.slice(1).join(', ') : '';
+    $('donor-total').textContent = won(g.total);
+    $('donor-count').textContent = g.count + '회';
+    $('donor-first').textContent = g.first.slice(0, 10).replace(/-/g, '.');
+    $('donor-last').textContent = g.last.slice(0, 10).replace(/-/g, '.');
+    var mine = state.idx.dons.filter(function (x) { return x.k === k; });
+    state.expanded = null;
+    var draw = function () {
+      fillList($('donor-list'), $('donor-more'), mine, 10, 'donor:' + k, function (x) {
+        return donationButton(x, { noOpen: true, withYear: true });
+      }, draw);
+    };
+    draw();
+    openSheet('sheet-donor');
+  }
+
   function renderEntries(view, key) {
     var V = VIEWS[view], start = V.start(key), end = V.end(key), list = [];
+    var hasDon = state.idx.hasDon;
     Object.keys(state.idx.toon).forEach(function (d) {
       if (d >= start && d <= end) list = list.concat(state.idx.toon[d]);
     });
+    // 후원 내역이 있으면 자동 기록 줄은 위의 내역으로 보여 주고, 여기엔 직접 입력·보정 기록만
+    if (hasDon) list = list.filter(function (t) { return String(t.m) !== '자동 기록'; });
+    $('entries-sec').hidden = hasDon && !list.length;
+    $('entries-title').textContent = hasDon ? '그 밖의 투네이션 기록' : '이 기간 투네이션 기록';
     list.sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : 0; });
     var ul = $('entries'), more = $('entries-more'), LIMIT = 5;
     var expanded = state.expanded === view + ':' + key;
@@ -850,7 +1075,8 @@ button { cursor: pointer; }
     (expanded ? list : list.slice(0, LIMIT)).forEach(function (t) {
       var li = document.createElement('li');
       var d = document.createElement('span'); d.className = 'd num'; d.textContent = (+t.d.slice(5, 7)) + '/' + (+t.d.slice(8));
-      var m = document.createElement('span'); m.className = 'm'; m.textContent = t.m ? String(t.m).replace(/^'/, '') : '투네이션 후원';
+      var m = document.createElement('span'); m.className = 'm';
+      m.textContent = t.m === '자동 기록(내역 없음)' ? '내역 없이 늘어난 금액' : t.m ? String(t.m).replace(/^'/, '') : '투네이션 후원';
       var a = document.createElement('span'); a.className = 'a num'; a.textContent = won(t.a);
       var del = document.createElement('button'); del.type = 'button'; del.className = 'del';
       del.setAttribute('aria-label', md(t.d) + ' ' + won(t.a) + ' 기록 삭제');
@@ -1028,6 +1254,11 @@ button { cursor: pointer; }
     if (n <= currentKey(state.view)) selectKey(n);
   });
   $('btn-refresh').addEventListener('click', function () { refresh('summary'); });
+  $('donor-q').addEventListener('input', function (e) {
+    state.donorQuery = e.target.value;
+    state.expanded = null;
+    if (state.data) renderRanking(state.view, selectedKey());
+  });
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible' && !$('main').hidden && !state.demo && Date.now() - state.lastFetch > 5 * 60 * 1000) refresh('summary');
   });
@@ -1175,21 +1406,35 @@ button { cursor: pointer; }
 
   /* ───────── 예시 데이터 (서버 없이 둘러보기) ───────── */
   function makeDemo() {
-    var t = today(), latest = addDays(t, -2), yt = [], toon = [], seed = 7;
+    var t = today(), latest = addDays(t, -2), yt = [], toon = [], don = [], seed = 7;
     function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+    var names = ['링사이드', '코너맨', '탭아웃', '세컨드', '야차팬', '블컴러버', '판정승', '그라운드앤파운드', '케하케하', '라이트헤비'];
+    var handles = ['@격투보는직장인', '@주먹밥', '@3라운드'];
     var start = addMonthsKey(t.slice(0, 7), -23) + '-01';
-    for (var d = start, i = 0; d <= latest; d = addDays(d, 1), i++) {
+    for (var d = start, i = 0; d <= t; d = addDays(d, 1), i++) {
       var growth = 0.7 + i / 1100, wd = parse(d).getUTCDay();
-      var v = (30000 + rnd() * 26000) * growth * (wd === 0 || wd === 6 ? 1.25 : 1);
-      yt.push([d, Math.round(v), Math.round(v * 0.82)]);
+      if (d <= latest) {
+        var v = (30000 + rnd() * 26000) * growth * (wd === 0 || wd === 6 ? 1.25 : 1);
+        yt.push([d, Math.round(v), Math.round(v * 0.82)]);
+      }
       if ((wd === 2 || wd === 4 || wd === 6) && rnd() > 0.15) {
-        var n = 1 + Math.floor(rnd() * 3);
+        var n = 1 + Math.floor(rnd() * 4), sum = 0;
         for (var j = 0; j < n; j++) {
-          toon.push({ id: 'demo' + i + '_' + j, d: d, a: Math.round((5 + rnd() * 45) * growth) * 1000, m: '라이브 후원' });
+          var a = Math.round((1 + rnd() * 30) * growth) * 1000;
+          var nm = names[Math.floor(Math.pow(rnd(), 1.6) * names.length)];
+          var hh = 20 + Math.floor(rnd() * 3), mm = Math.floor(rnd() * 60), ss = Math.floor(rnd() * 60);
+          don.push([d + ' ' + pad(hh) + ':' + pad(mm) + ':' + pad(ss), 0, nm, a, '', 'demo:' + nm, '100']);
+          sum += a;
+        }
+        toon.push({ id: 'demo' + i, d: d, a: sum, m: '자동 기록' });
+        if (rnd() > 0.6) {
+          var h = handles[Math.floor(rnd() * handles.length)];
+          don.push([d + ' 21:' + pad(Math.floor(rnd() * 60)) + ':00', 1, h, Math.round(1 + rnd() * 9) * 2000, '', 'demo:' + h, '슈퍼챗']);
         }
       }
     }
-    return { ok: true, demo: true, channel: '예시 채널', updatedAt: t + ' 07:02', ytLatest: latest, version: 'demo', yt: yt, toon: toon };
+    don.sort(function (x, y) { return x[0] < y[0] ? 1 : -1; });
+    return { ok: true, demo: true, channel: '예시 채널', updatedAt: t + ' 07:02', ytLatest: latest, version: 'demo', yt: yt, toon: toon, don: don };
   }
   function demoApi(action, extra) {
     var d = state.data;
