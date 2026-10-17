@@ -168,6 +168,13 @@ button { cursor: pointer; }
 .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
 .sw.yt { background: var(--yt); }
 .sw.toon { background: var(--toon); }
+.sw.yt.soft { opacity: 0.45; }
+.yt-all { margin: 0 0 24px; padding: 14px 16px 12px; border: 1px solid var(--hair); border-radius: 14px; background: var(--raised); }
+.yt-all-total { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+.yt-all-split { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 0; font-size: 13px; color: var(--ink-2); }
+.yt-all-split span { display: inline-flex; align-items: center; gap: 5px; }
+.yt-all-split .sw { width: 8px; height: 8px; border-radius: 2px; }
+.yt-all-split b { font-weight: 600; color: var(--ink); }
 .tape-bar { display: flex; gap: var(--gap); height: 14px; }
 .tape-bar .seg { height: 100%; min-width: 0; transition: flex-basis 0.35s ease; }
 .tape-bar .seg.yt { background: var(--yt); border-radius: 5px 0 0 5px; }
@@ -410,7 +417,7 @@ button { cursor: pointer; }
 
   <div class="segmented two" id="don-src" role="tablist" aria-label="후원 출처" hidden>
     <button type="button" role="tab" data-src="0" aria-selected="true">투네이션</button>
-    <button type="button" role="tab" data-src="1" aria-selected="false">유튜브 슈퍼챗</button>
+    <button type="button" role="tab" data-src="1" aria-selected="false">유튜브</button>
   </div>
 
   <section aria-labelledby="don-title" id="don-sec" hidden>
@@ -425,6 +432,15 @@ button { cursor: pointer; }
     <ol id="rank-list" class="dons"></ol>
     <button id="rank-more" class="secondary more-btn" type="button" hidden></button>
     <p id="rank-empty" class="empty-note" hidden>이 기간에 후원한 사람이 없어요.</p>
+  </section>
+
+  <section aria-labelledby="yt-all-title" id="yt-all-sec" hidden>
+    <div class="sec-head"><h3 id="yt-all-title">유튜브 역대 수익</h3></div>
+    <div class="yt-all">
+      <p class="yt-all-total num" id="yt-all-total">0원</p>
+      <p class="yt-all-split num"><span><i class="sw yt"></i>광고 <b id="yt-all-ad">0</b></span><span><i class="sw yt soft"></i>광고 외 <b id="yt-all-other">0</b></span></p>
+      <p class="note" id="yt-all-note"></p>
+    </div>
   </section>
 
   <section aria-labelledby="all-title" id="all-sec" hidden>
@@ -660,9 +676,10 @@ button { cursor: pointer; }
 
   /* ───────── 데이터 인덱스 · 합계 ───────── */
   function buildIndex(data) {
-    var yt = {}, toon = {}, first = null;
+    var yt = {}, ytAd = {}, toon = {}, first = null;
     (data.yt || []).forEach(function (r) {
       yt[r[0]] = Number(r[1]) || 0;
+      ytAd[r[0]] = Number(r[2]) || 0;
       if (!first || r[0] < first) first = r[0];
     });
     (data.toon || []).forEach(function (t) {
@@ -686,7 +703,7 @@ button { cursor: pointer; }
     });
     first = first || today();
     if (first < SHOW_FROM) first = SHOW_FROM;
-    return { yt: yt, toon: toon, first: first, ytLatest: data.ytLatest || '', dons: dons, donors: donors, hasDon: dons.length > 0 };
+    return { yt: yt, ytAd: ytAd, toon: toon, first: first, ytLatest: data.ytLatest || '', dons: dons, donors: donors, hasDon: dons.length > 0 };
   }
   function toonFactor() {
     var f = Number(state.settings.fee) || 0;
@@ -732,6 +749,7 @@ button { cursor: pointer; }
     renderList(view, key, cur);
     renderDonations(view, key);
     renderRanking(view, key);
+    renderYtAll();
     renderAllTime();
     renderEntries(view, key);
     $('list-title').textContent = V.listTitle;
@@ -1086,6 +1104,28 @@ button { cursor: pointer; }
       function () { renderRanking(view, key); });
   }
 
+  // 유튜브 역대 수익(예상): 보여 주는 시작일부터 받은 날짜를 모두 더함 (유튜브 탭에서만)
+  function dotDate(d) { return d.slice(0, 10).replace(/-/g, '.'); }
+  function renderYtAll() {
+    var idx = state.idx, on = idx.hasDon && donorSrc() === 1;
+    $('yt-all-sec').hidden = !on;
+    if (!on) return;
+    var total = 0, ad = 0, firstRev = '';
+    Object.keys(idx.yt).sort().forEach(function (d) {
+      if (d < SHOW_FROM) return;
+      var v = idx.yt[d];
+      total += v; ad += idx.ytAd[d] || 0;
+      if (v > 0 && !firstRev) firstRev = d;
+    });
+    $('yt-all-total').textContent = won(total);
+    $('yt-all-ad').textContent = plain(Math.min(ad, total));
+    $('yt-all-other').textContent = plain(Math.max(0, total - ad));
+    var latest = idx.ytLatest;
+    $('yt-all-note').textContent = firstRev
+      ? dotDate(firstRev) + ' 첫 수익부터 ' + (latest ? dotDate(latest) + '까지 반영된' : '지금까지의') + ' 예상 수익이에요. 광고 외는 슈퍼챗·멤버십·프리미엄 등이에요.'
+      : '아직 받은 유튜브 수익이 없어요.';
+  }
+
   // 역대(전체 기간) 후원 합계 순위. 닉네임 검색은 이 목록에서 찾고, 찾은 사람의 역대 순위를 그대로 보여 줌
   function renderAllTime() {
     var idx = state.idx, src = donorSrc();
@@ -1350,6 +1390,7 @@ button { cursor: pointer; }
       var k = selectedKey();
       renderDonations(state.view, k);
       renderRanking(state.view, k);
+      renderYtAll();
       renderAllTime();
     });
   });
