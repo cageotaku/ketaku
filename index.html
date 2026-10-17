@@ -211,6 +211,7 @@ button { cursor: pointer; }
 /* 목록 (차트의 표 버전) */
 .list { list-style: none; margin: 0 0 30px; padding: 0; border-top: 1px solid var(--hair); }
 .list li { border-bottom: 1px solid var(--hair); }
+.list + .more-btn { margin-top: -18px; margin-bottom: 30px; }
 .row-btn { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; width: 100%; text-align: left; padding: 11px 8px; margin: 0 -8px; width: calc(100% + 16px); background: transparent; border: 0; border-radius: 10px; }
 .row-btn:active { background: var(--press); }
 .row-btn[aria-current="true"] { background: var(--press); }
@@ -446,6 +447,7 @@ button { cursor: pointer; }
   <section aria-labelledby="list-title">
     <div class="sec-head"><h3 id="list-title">월별 기록</h3></div>
     <ol id="period-list" class="list"></ol>
+    <button id="list-more" class="secondary more-btn" type="button" hidden></button>
   </section>
 
   <p class="foot" id="foot">유튜브는 유튜브 스튜디오의 예상 수익 기준이에요. 후원 내역의 슈퍼챗은 시청자가 낸 금액이고, 유튜브 몫을 뗀 금액이 유튜브 수익에 이미 들어 있어요. <a href="privacy.html" style="color:inherit">개인정보처리방침</a></p>
@@ -569,6 +571,8 @@ button { cursor: pointer; }
     busy: false,
     lastFetch: 0,
     donorQuery: '',
+    listExpanded: null, // 월별 기록 '모두 보기'를 펼친 화면
+    listKey: '',
     settings: Object.assign({ toonMode: 'gross', fee: 0, donorSrc: 0 }, load(KEY.settings, true) || {})
   };
   if (['month', 'week', 'day'].indexOf(state.view) < 0) state.view = 'month';
@@ -590,6 +594,10 @@ button { cursor: pointer; }
   function monday(s) { var dow = parse(s).getUTCDay(); return addDays(s, -((dow + 6) % 7)); }
   function md(s) { var p = s.split('-'); return (+p[1]) + '월 ' + (+p[2]) + '일'; }
   function dow(s) { return DOW[parse(s).getUTCDay()]; }
+
+  // 이 날짜보다 이전 기록은 목록·이동에서 보여 주지 않음 (수익이 생기기 전 빈 달 숨김)
+  var SHOW_FROM = '2026-03-01';
+  var MONTH_LIST_LIMIT = 5; // 월별 기록은 최근 5개월만 먼저, 나머지는 '모두 보기'
 
   var VIEWS = {
     month: {
@@ -676,7 +684,9 @@ button { cursor: pointer; }
       if (x.t > g.last) g.last = x.t;
       g.src[x.s] = true;
     });
-    return { yt: yt, toon: toon, first: first || today(), ytLatest: data.ytLatest || '', dons: dons, donors: donors, hasDon: dons.length > 0 };
+    first = first || today();
+    if (first < SHOW_FROM) first = SHOW_FROM;
+    return { yt: yt, toon: toon, first: first, ytLatest: data.ytLatest || '', dons: dons, donors: donors, hasDon: dons.length > 0 };
   }
   function toonFactor() {
     var f = Number(state.settings.fee) || 0;
@@ -913,9 +923,21 @@ button { cursor: pointer; }
   function hideTip() { var tip = $('tip'); if (tip) tip.hidden = true; }
 
   function renderList(view, key, cur) {
-    var V = VIEWS[view], ol = $('period-list'), k = cur, n = 0, latest = state.idx.ytLatest;
+    var V = VIEWS[view], ol = $('period-list'), more = $('list-more'), latest = state.idx.ytLatest;
     ol.textContent = '';
-    while (n < V.listN && V.end(k) >= state.idx.first) {
+    var keys = [];
+    for (var kk0 = cur; keys.length < V.listN && V.end(kk0) >= state.idx.first; kk0 = V.prev(kk0)) keys.push(kk0);
+    // 월별은 최근 5개월만 먼저 보여 주고, 그 이전 달은 '모두 보기'로. 고른 달이 그보다 이전이면 처음 한 번 펼쳐 둠
+    var limit = view === 'month' ? MONTH_LIST_LIMIT : keys.length;
+    if (state.listKey !== view + ':' + key) {
+      state.listKey = view + ':' + key;
+      if (keys.indexOf(key) >= limit) state.listExpanded = view;
+    }
+    var expanded = state.listExpanded === view;
+    more.hidden = keys.length <= limit;
+    more.textContent = expanded ? '접기' : keys.length + '개월 모두 보기';
+    more.onclick = function () { state.listExpanded = expanded ? null : view; renderList(view, key, cur); };
+    (expanded ? keys : keys.slice(0, limit)).forEach(function (k) {
       var s = periodSum(view, k);
       var li = document.createElement('li');
       var b = document.createElement('button');
@@ -933,10 +955,9 @@ button { cursor: pointer; }
       c.appendChild(document.createTextNode('투네이션 ' + plain(s.toon)));
       sp.appendChild(a); sp.appendChild(c);
       b.appendChild(l); b.appendChild(t); b.appendChild(sp);
-      (function (kk) { b.addEventListener('click', function () { selectKey(kk, true); }); })(k);
+      b.addEventListener('click', function () { selectKey(k, true); });
       li.appendChild(b); ol.appendChild(li);
-      k = V.prev(k); n++;
-    }
+    });
   }
 
   /* ───────── 후원 내역 · 후원자 ───────── */
