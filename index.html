@@ -171,6 +171,10 @@ button { cursor: pointer; }
 .sw.yt.soft { opacity: 0.45; }
 .yt-all { margin: 0 0 24px; padding: 14px 16px 12px; border: 1px solid var(--hair); border-radius: 14px; background: var(--raised); }
 .yt-all-total { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+/* 유튜브 금액 옆 달러 (유튜브 스튜디오의 달러 금액 그대로) */
+.usd { margin-left: 5px; font-size: 13px; font-weight: 500; letter-spacing: 0; color: var(--ink-2); white-space: nowrap; }
+.yt-all-total .usd { font-size: 15px; }
+.usd-line { display: block; margin: 1px 0 0; }
 .yt-all-split { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 0; font-size: 13px; color: var(--ink-2); }
 .yt-all-split span { display: inline-flex; align-items: center; gap: 5px; }
 .yt-all-split .sw { width: 8px; height: 8px; border-radius: 2px; }
@@ -440,7 +444,7 @@ button { cursor: pointer; }
       <span class="seg yt" id="seg-yt"></span><span class="seg toon" id="seg-toon"></span>
     </div>
     <div class="tape-bottom">
-      <span id="yt-val" class="num">0원</span>
+      <span class="num"><span id="yt-val">0원</span><small id="yt-usd" class="usd" hidden></small></span>
       <span id="toon-val" class="num">0원</span>
     </div>
     <p id="context" class="context"></p>
@@ -484,7 +488,7 @@ button { cursor: pointer; }
   <section aria-labelledby="yt-all-title" id="yt-all-sec" hidden>
     <div class="sec-head"><h3 id="yt-all-title">유튜브 역대 수익</h3></div>
     <div class="yt-all">
-      <p class="yt-all-total num" id="yt-all-total">0원</p>
+      <p class="yt-all-total num"><span id="yt-all-total">0원</span><small id="yt-all-usd" class="usd" hidden></small></p>
       <p class="yt-all-split num"><span><i class="sw yt"></i>광고 <b id="yt-all-ad">0</b></span><span><i class="sw yt soft"></i>광고 외 <b id="yt-all-other">0</b></span></p>
       <p class="note" id="yt-all-note"></p>
     </div>
@@ -522,7 +526,7 @@ button { cursor: pointer; }
       <p id="vp-sub" class="note"></p>
     </section>
     <div class="yt-all vp-sum" id="vp-sum" hidden>
-      <div class="vp-sum-row"><span>누적 예상 수익</span><b id="vp-rev" class="num">0원</b></div>
+      <div class="vp-sum-row"><span>누적 예상 수익</span><b id="vp-rev" class="num">0원</b><small id="vp-usd" class="usd usd-line num" hidden></small></div>
       <div class="vp-sum-row"><span>누적 조회수</span><b id="vp-views" class="num">0회</b></div>
       <p class="note vp-basis" id="vp-basis"></p>
     </div>
@@ -641,7 +645,7 @@ button { cursor: pointer; }
   /* ───────── 설정 · 저장소 ───────── */
   var CFG = window.KETAKU_CONFIG || {};
   var TZ = 'Asia/Seoul';
-  var APP_VERSION = '1.4';
+  var APP_VERSION = '1.5';
   // pin은 예전 앱이 저장하던 값(열쇠로 바꾸면 지움). token = 서버가 준 이 기기 전용 열쇠
   var KEY = { pin: 'ketaku.pin', token: 'ketaku.token', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view', vids: 'ketaku.vids' };
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -747,6 +751,24 @@ button { cursor: pointer; }
 
   /* ───────── 숫자 표기 ───────── */
   function won(n) { return Math.round(n).toLocaleString('ko-KR') + '원'; }
+  // 달러: 유튜브가 원래 계산하는 금액(유튜브 스튜디오의 달러 표시와 같음). 원화 금액 뒤 괄호로
+  function usdText(n) { return '($' + (Math.round(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ')'; }
+  function setUsd(el, v) {
+    el.hidden = v === null || v === undefined;
+    el.textContent = el.hidden ? '' : usdText(v);
+  }
+  // 기간의 유튜브 달러 합계. 수익이 있는 날 중 달러가 빠진 날이 있으면 null(틀린 합계를 보여 주지 않음)
+  function ytUsdRange(start, end) {
+    var idx = state.idx, sum = 0, any = false;
+    if (!idx || start > end) return null;
+    for (var d = start; d <= end; d = addDays(d, 1)) {
+      if (!idx.yt[d]) continue;
+      var u = idx.ytUsd[d];
+      if (u === null || u === undefined) return null;
+      sum += u; any = true;
+    }
+    return any ? sum : null;
+  }
   function plain(n) { return Math.round(n).toLocaleString('ko-KR'); }
   function compact(n) {
     if (n >= 100000000) return trim1(n / 100000000) + '억';
@@ -767,10 +789,11 @@ button { cursor: pointer; }
 
   /* ───────── 데이터 인덱스 · 합계 ───────── */
   function buildIndex(data) {
-    var yt = {}, ytAd = {}, toon = {}, first = null;
+    var yt = {}, ytAd = {}, ytUsd = {}, toon = {}, first = null;
     (data.yt || []).forEach(function (r) {
       yt[r[0]] = Number(r[1]) || 0;
       ytAd[r[0]] = Number(r[2]) || 0;
+      ytUsd[r[0]] = r[3] === null || r[3] === undefined || r[3] === '' ? null : Number(r[3]) || 0; // 달러(없으면 null)
       if (!first || r[0] < first) first = r[0];
     });
     (data.toon || []).forEach(function (t) {
@@ -794,7 +817,7 @@ button { cursor: pointer; }
     });
     first = first || today();
     if (first < SHOW_FROM) first = SHOW_FROM;
-    return { yt: yt, ytAd: ytAd, toon: toon, first: first, ytLatest: data.ytLatest || '', dons: dons, donors: donors, hasDon: dons.length > 0 };
+    return { yt: yt, ytAd: ytAd, ytUsd: ytUsd, toon: toon, first: first, ytLatest: data.ytLatest || '', dons: dons, donors: donors, hasDon: dons.length > 0 };
   }
   function toonFactor() {
     var f = Number(state.settings.fee) || 0;
@@ -944,6 +967,8 @@ button { cursor: pointer; }
     $('yt-pct').textContent = ytPct + '%';
     $('toon-pct').textContent = toonPct + '%';
     $('yt-val').textContent = won(s.yt);
+    var heroEnd = V.end(key) < today() ? V.end(key) : today();
+    setUsd($('yt-usd'), s.yt > 0 ? ytUsdRange(V.start(key), heroEnd) : null);
     $('toon-val').textContent = won(s.toon);
 
     // 비교 문장 (이번 달이면 예상 마감액과 지난달 같은 기간 비교)
@@ -1293,14 +1318,16 @@ button { cursor: pointer; }
     var idx = state.idx, on = idx.hasDon && donorSrc() === 1;
     $('yt-all-sec').hidden = !on;
     if (!on) return;
-    var total = 0, ad = 0, firstRev = '';
+    var total = 0, ad = 0, firstRev = '', usd = 0, usdOk = true;
     Object.keys(idx.yt).sort().forEach(function (d) {
       if (d < SHOW_FROM) return;
       var v = idx.yt[d];
       total += v; ad += idx.ytAd[d] || 0;
       if (v > 0 && !firstRev) firstRev = d;
+      if (v > 0) { if (idx.ytUsd[d] === null || idx.ytUsd[d] === undefined) usdOk = false; else usd += idx.ytUsd[d]; }
     });
     $('yt-all-total').textContent = won(total);
+    setUsd($('yt-all-usd'), total > 0 && usdOk ? usd : null);
     $('yt-all-ad').textContent = plain(Math.min(ad, total));
     $('yt-all-other').textContent = plain(Math.max(0, total - ad));
     var latest = idx.ytLatest;
@@ -1668,7 +1695,8 @@ button { cursor: pointer; }
     if (!res || !res.rows) return [];
     if (state.vpSorted && state.vpSorted.res === res && state.vpSorted.key === key) return state.vpSorted.list;
     var list = res.rows.map(function (r) {
-      return { id: String(r[0] || ''), title: String(r[1] === null || r[1] === undefined ? '' : r[1]), pub: String(r[2] || ''), views: Number(r[3]) || 0, rev: Number(r[4]) || 0 };
+      return { id: String(r[0] || ''), title: String(r[1] === null || r[1] === undefined ? '' : r[1]), pub: String(r[2] || ''), views: Number(r[3]) || 0, rev: Number(r[4]) || 0,
+        usd: r[5] === null || r[5] === undefined || r[5] === '' ? null : Number(r[5]) || 0 };
     }).filter(function (v) { return v.id; });
     list.sort(key === 'views'
       ? function (a, b) { return b.views - a.views || b.rev - a.rev; }
@@ -1713,11 +1741,15 @@ button { cursor: pointer; }
       return;
     }
     var all = sortedVids(), byViews = vidSort() === 'views';
-    var tv = 0, tr = 0;
-    all.forEach(function (v) { tv += v.views; tr += v.rev; });
+    var tv = 0, tr = 0, tu = 0, tuOk = true;
+    all.forEach(function (v) {
+      tv += v.views; tr += v.rev;
+      if (v.rev > 0) { if (v.usd === null) tuOk = false; else tu += v.usd; }
+    });
     $('vp-sub').textContent = (res.created ? '채널 개설(' + dotDate(res.created) + ') 이후 ' : '') + '올린 영상 ' + plain(all.length) + '개';
     $('vp-sum').hidden = !all.length; $('vp-sort').hidden = !all.length; $('vp-search').hidden = !all.length;
     $('vp-rev').textContent = won(tr);
+    setUsd($('vp-usd'), tr > 0 && tuOk ? tu : null);
     $('vp-views').textContent = plain(tv) + '회';
     $('vp-basis').textContent = '수익은 ' + (res.revEnd ? md(res.revEnd) + '까지' : '지금까지') + ', 조회수는 지금까지 쌓인 값이에요.' +
       (res.at ? ' 매일 아침 새로 받아요 (마지막 ' + whenText(res.at) + ').' : '');
@@ -1955,7 +1987,7 @@ button { cursor: pointer; }
       var growth = 0.7 + i / 1100, wd = parse(d).getUTCDay();
       if (d <= latest) {
         var v = (30000 + rnd() * 26000) * growth * (wd === 0 || wd === 6 ? 1.25 : 1);
-        yt.push([d, Math.round(v), Math.round(v * 0.82)]);
+        yt.push([d, Math.round(v), Math.round(v * 0.82), Math.round(v / 1385 * 100) / 100]);
       }
       if ((wd === 2 || wd === 4 || wd === 6) && rnd() > 0.15) {
         var n = 1 + Math.floor(rnd() * 4), sum = 0;
@@ -2009,7 +2041,8 @@ button { cursor: pointer; }
         if (pub > t0) pub = t0;
         var age = Math.max(1, dayDiff(pub, t0));
         var views = Math.round((800 + rnd2() * 30000) * Math.min(1, age / 30) * (k[2] < 1000 ? 4 : 1));
-        rows.push(['demo-v' + i, k[0] + (Math.floor(i / 5) + 1) + k[1] + ' (예시)', pub, views, age <= 3 ? 0 : Math.round(views * k[2] * (0.6 + rnd2() * 0.8) / 1000)]);
+        var rv = age <= 3 ? 0 : Math.round(views * k[2] * (0.6 + rnd2() * 0.8) / 1000);
+        rows.push(['demo-v' + i, k[0] + (Math.floor(i / 5) + 1) + k[1] + ' (예시)', pub, views, rv, Math.round(rv / 1385 * 100) / 100]);
       }
       rows.sort(function (x, y) { return y[4] - x[4] || y[3] - x[3]; });
       return { ok: true, at: t0 + ' 07:03', revEnd: (d && d.ytLatest) || addDays(t0, -2), created: created, rows: rows };
