@@ -124,7 +124,7 @@ button { cursor: pointer; }
 .linkish { background: none; border: 0; padding: 12px 0; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; font-size: 14px; }
 
 /* ── 메인 ── */
-.main { max-width: 560px; margin: 0 auto; padding: calc(10px + var(--safe-t)) var(--pad) calc(120px + var(--safe-b)); }
+.main { max-width: 560px; margin: 0 auto; padding: calc(10px + var(--safe-t)) var(--pad) calc(140px + var(--safe-b)); }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; }
 .topbar h1 { font-size: 17px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
 .status-line { margin: 1px 0 0; font-size: 12px; color: var(--ink-3); }
@@ -291,7 +291,7 @@ button { cursor: pointer; }
 .fab {
   position: fixed; z-index: 5;
   right: max(var(--pad), calc((100vw - 560px) / 2 + var(--pad)));
-  bottom: calc(18px + var(--safe-b));
+  bottom: calc(78px + var(--safe-b));
   display: inline-flex; align-items: center; gap: 6px;
   padding: 14px 20px 14px 16px;
   border: 0; border-radius: 999px;
@@ -301,6 +301,34 @@ button { cursor: pointer; }
 }
 .fab svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; fill: none; }
 .fab:active { transform: scale(0.97); }
+
+/* 아래쪽 화면 탭 (수익 / 영상) */
+.tabbar {
+  position: fixed; z-index: 6; left: 0; right: 0; bottom: 0;
+  display: flex; justify-content: center;
+  padding: 4px max(var(--pad), calc((100vw - 560px) / 2 + var(--pad))) calc(4px + var(--safe-b));
+  background: var(--canvas);
+  background: color-mix(in srgb, var(--canvas) 90%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px); backdrop-filter: saturate(1.4) blur(14px);
+  border-top: 1px solid var(--hair);
+}
+.tabbar button {
+  flex: 1; max-width: 200px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 0 4px; border: 0; background: transparent; color: var(--ink-3); font-size: 11px; font-weight: 600;
+}
+.tabbar svg { width: 25px; height: 25px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.tabbar button[aria-current="page"] { color: var(--ink); }
+.tabbar button[aria-current="page"] svg { stroke-width: 2.4; }
+
+/* 영상 순위 화면 */
+.vp-head { margin: 14px 0 12px; }
+.vp-head h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+.vp-head .note { margin-top: 4px; }
+.vp-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.vp-sum-row span { display: block; font-size: 13px; color: var(--ink-2); }
+.vp-sum-row b { display: block; margin-top: 2px; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+.vp-basis { grid-column: 1 / -1; margin: 0; }
+.vp-loading #vp-list, .vp-loading #vp-sum { opacity: 0.55; transition: opacity 0.2s; }
 
 /* 아래에서 올라오는 시트 */
 .sheet { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; }
@@ -334,13 +362,14 @@ button { cursor: pointer; }
 .info dd { margin: 0; text-align: right; }
 
 .toast {
-  position: fixed; z-index: 20; left: 50%; bottom: calc(86px + var(--safe-b));
+  position: fixed; z-index: 20; left: 50%; bottom: calc(76px + var(--safe-b));
   transform: translate(-50%, 12px); opacity: 0; pointer-events: none;
-  max-width: calc(100vw - 40px); padding: 11px 16px; border-radius: 12px;
+  width: max-content; max-width: calc(100vw - 40px); padding: 11px 16px; border-radius: 12px;
   background: var(--ink); color: var(--canvas); font-size: 14px; font-weight: 600;
   transition: opacity 0.2s, transform 0.2s;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+.fab-on .toast { bottom: calc(140px + var(--safe-b)); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
@@ -388,6 +417,7 @@ button { cursor: pointer; }
 
   <div id="banner" class="banner" role="status" hidden></div>
 
+  <div id="page-rev">
   <div class="segmented" role="tablist" aria-label="기간 단위">
     <button type="button" role="tab" data-view="month" aria-selected="true">월별</button>
     <button type="button" role="tab" data-view="week" aria-selected="false">주별</button>
@@ -484,6 +514,40 @@ button { cursor: pointer; }
   </section>
 
   <p class="foot" id="foot">유튜브는 유튜브 스튜디오의 예상 수익 기준이에요. 후원 내역의 슈퍼챗은 시청자가 낸 금액이고, 유튜브 몫을 뗀 금액이 유튜브 수익에 이미 들어 있어요. <a href="privacy.html" style="color:inherit">개인정보처리방침</a></p>
+  </div>
+
+  <div id="page-vid" hidden>
+    <section class="vp-head" aria-labelledby="vp-title">
+      <h2 id="vp-title">영상 순위</h2>
+      <p id="vp-sub" class="note"></p>
+    </section>
+    <div class="yt-all vp-sum" id="vp-sum" hidden>
+      <div class="vp-sum-row"><span>누적 예상 수익</span><b id="vp-rev" class="num">0원</b></div>
+      <div class="vp-sum-row"><span>누적 조회수</span><b id="vp-views" class="num">0회</b></div>
+      <p class="note vp-basis" id="vp-basis"></p>
+    </div>
+    <div class="segmented two" id="vp-sort" role="tablist" aria-label="정렬">
+      <button type="button" role="tab" data-sort="rev" aria-selected="true">수익순</button>
+      <button type="button" role="tab" data-sort="views" aria-selected="false">조회수순</button>
+    </div>
+    <label class="search" id="vp-search"><span class="sr">영상 제목 검색</span>
+      <input id="vp-q" type="search" placeholder="제목으로 찾기" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+    </label>
+    <ol id="vp-list" class="dons"></ol>
+    <button id="vp-more" class="secondary more-btn" type="button" hidden></button>
+    <p id="vp-msg" class="empty-note" hidden></p>
+    <button id="vp-retry" class="secondary more-btn" type="button" hidden>다시 시도</button>
+    <p id="vp-note" class="foot"></p>
+  </div>
+
+  <nav class="tabbar" aria-label="화면 바꾸기">
+    <button type="button" data-page="rev" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-6"/></svg><span>수익</span>
+    </button>
+    <button type="button" data-page="vid">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="3.5"/><path d="M10.5 9.5v5l4.2-2.5z"/></svg><span>영상</span>
+    </button>
+  </nav>
 </main>
 
 <button id="fab" class="fab" type="button" hidden aria-label="투네이션 후원 기록하기">
@@ -577,9 +641,9 @@ button { cursor: pointer; }
   /* ───────── 설정 · 저장소 ───────── */
   var CFG = window.KETAKU_CONFIG || {};
   var TZ = 'Asia/Seoul';
-  var APP_VERSION = '1.3';
+  var APP_VERSION = '1.4';
   // pin은 예전 앱이 저장하던 값(열쇠로 바꾸면 지움). token = 서버가 준 이 기기 전용 열쇠
-  var KEY = { pin: 'ketaku.pin', token: 'ketaku.token', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view' };
+  var KEY = { pin: 'ketaku.pin', token: 'ketaku.token', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view', vids: 'ketaku.vids' };
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
   function save(k, v) {
@@ -608,7 +672,15 @@ button { cursor: pointer; }
     donorQuery: '',
     listExpanded: null, // 월별 기록 '모두 보기'를 펼친 화면
     listKey: '',
-    settings: Object.assign({ toonMode: 'gross', fee: 0, donorSrc: 0 }, load(KEY.settings, true) || {})
+    page: 'rev',          // 아래 탭: rev 수익 · vid 영상 순위 (앱을 새로 열면 늘 수익부터)
+    scroll: {},           // 탭마다 보던 위치
+    vids: load(KEY.vids, true), // 전체 영상 목록 (마지막으로 받은 것)
+    vidsLoading: null,
+    vidsError: '',
+    vidsFetch: 0,
+    vpQuery: '',
+    vpShown: 50,
+    settings: Object.assign({ toonMode: 'gross', fee: 0, donorSrc: 0, vidSort: 'rev' }, load(KEY.settings, true) || {})
   };
   if (['month', 'week', 'day'].indexOf(state.view) < 0) state.view = 'month';
   state.settings.donorSrc = state.settings.donorSrc === 1 ? 1 : 0; // 후원 명단 출처: 0 투네이션 · 1 유튜브 슈퍼챗
@@ -757,6 +829,7 @@ button { cursor: pointer; }
 
   function render() {
     if (!state.data) return;
+    if (state.page !== 'rev') { renderStatus(); return; } // 수익 화면은 돌아올 때 다시 그림
     var view = state.view, V = VIEWS[view];
     var key = selectedKey(), cur = currentKey(view);
     document.querySelectorAll('.segmented [data-view]').forEach(function (b) {
@@ -1336,12 +1409,12 @@ button { cursor: pointer; }
     if (token && !pinOverride) return { token: token };
     return { pin: pinOverride || load(KEY.pin), wantToken: true, device: deviceLabel() };
   }
-  function api(action, extra, pinOverride) {
+  function api(action, extra, pinOverride, timeoutMs) {
     if (state.demo) return Promise.resolve(demoApi(action, extra || {}));
     var url = serverUrl();
     var body = Object.assign(authBody(pinOverride), { action: action }, extra || {});
     var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 30000) : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs || 30000) : null;
     return fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1415,7 +1488,7 @@ button { cursor: pointer; }
   function refresh(action) {
     if (state.busy) return Promise.resolve();
     state.busy = true;
-    $('btn-refresh').classList.add('spinning');
+    syncSpin();
     $('main').classList.add('refreshing');
     return api(action || 'summary').then(function (res) {
       if (handleAuthError(res)) return;
@@ -1432,7 +1505,7 @@ button { cursor: pointer; }
         : (err && err.message && /서버 응답/.test(err.message) ? err.message : '서버에 연결하지 못했어요. 인터넷 연결을 확인한 뒤 새로고침을 눌러주세요.'));
     }).finally(function () {
       state.busy = false;
-      $('btn-refresh').classList.remove('spinning');
+      syncSpin();
       $('main').classList.remove('refreshing');
     });
   }
@@ -1447,6 +1520,7 @@ button { cursor: pointer; }
   function showLock(message) {
     $('main').hidden = true;
     $('fab').hidden = true;
+    document.body.classList.remove('fab-on');
     $('lock').hidden = false;
     $('url-field').hidden = !!CFG.SERVER_URL;
     if (!CFG.SERVER_URL) $('lock-url').value = load(KEY.url) || '';
@@ -1459,7 +1533,8 @@ button { cursor: pointer; }
   }
   // 투네이션이 자동 기록 중이면 직접 입력 버튼은 숨겨서 같은 후원을 두 번 적지 않게 합니다.
   function syncFab() {
-    $('fab').hidden = $('main').hidden || !!(state.data && state.data.toonAuto && !state.demo);
+    $('fab').hidden = $('main').hidden || state.page !== 'rev' || !!(state.data && state.data.toonAuto && !state.demo);
+    document.body.classList.toggle('fab-on', !$('fab').hidden);
   }
   function showMain() {
     $('lock').hidden = true;
@@ -1484,7 +1559,10 @@ button { cursor: pointer; }
       if (res && res.ok) {
         // 열쇠를 받았으면 PIN은 기기에 남기지 않음 (열쇠를 주지 않는 예전 서버면 PIN을 저장)
         if (!res.token) save(KEY.pin, pin);
-        state.lastFetch = Date.now(); keepStorage(); showMain(); applyData(res); return;
+        resetVids(load(KEY.vids, true));
+        state.lastFetch = Date.now(); keepStorage(); showMain(); applyData(res);
+        if (state.page === 'vid') setPage('vid');
+        return;
       }
       err.textContent = (res && res.message) || '열지 못했어요.';
       err.hidden = false;
@@ -1499,8 +1577,10 @@ button { cursor: pointer; }
 
   $('lock-demo').addEventListener('click', function () {
     state.demo = true;
+    resetVids(null);
     showMain();
     applyData(makeDemo());
+    if (state.page === 'vid') setPage('vid');
     var banner = $('banner');
     banner.textContent = '예시 데이터예요. 설정 → PIN 다시 입력하기로 내 데이터를 열 수 있어요.';
     banner.hidden = false;
@@ -1534,17 +1614,177 @@ button { cursor: pointer; }
     var n = VIEWS[state.view].next(selectedKey());
     if (n <= currentKey(state.view)) selectKey(n);
   });
-  $('btn-refresh').addEventListener('click', function () { refresh('summary'); });
+  $('btn-refresh').addEventListener('click', function () { if (state.page === 'vid') loadVids(true); else refresh('summary'); });
   $('donor-q').addEventListener('input', function (e) {
     state.donorQuery = e.target.value;
     state.expanded = null;
     if (state.data) renderAllTime();
   });
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible' && !$('main').hidden && !state.demo && Date.now() - state.lastFetch > 5 * 60 * 1000) refresh('summary');
+    if (document.visibilityState !== 'visible' || $('main').hidden || state.demo) return;
+    if (Date.now() - state.lastFetch > 5 * 60 * 1000) refresh('summary');
+    if (state.page === 'vid' && Date.now() - state.vidsFetch > 10 * 60 * 1000) loadVids(false);
   });
   var resizeTimer;
   window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+
+  /* ───────── 아래 탭: 수익 / 영상 순위 ───────── */
+  function syncSpin() { $('btn-refresh').classList.toggle('spinning', !!(state.busy || state.vidsLoading)); }
+  function smooth() { return matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'; }
+  function setPage(p) {
+    p = p === 'vid' ? 'vid' : 'rev';
+    var same = p === state.page;
+    if (!same) state.scroll[state.page] = window.scrollY;
+    state.page = p;
+    $('page-rev').hidden = p !== 'rev';
+    $('page-vid').hidden = p !== 'vid';
+    document.querySelectorAll('.tabbar [data-page]').forEach(function (b) {
+      if (b.getAttribute('data-page') === p) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+    hideTip();
+    syncFab();
+    if (p === 'rev') render();
+    else {
+      renderVidPage();
+      if (!state.vidsLoading && Date.now() - state.vidsFetch > 10 * 60 * 1000) loadVids(false);
+    }
+    // 보고 있던 탭을 다시 누르면 맨 위로, 다른 탭으로 가면 그 탭에서 보던 위치로
+    if (same) window.scrollTo({ top: 0, behavior: smooth() });
+    else window.scrollTo(0, state.scroll[p] || 0);
+  }
+  document.querySelectorAll('.tabbar [data-page]').forEach(function (b) {
+    b.addEventListener('click', function () { setPage(b.getAttribute('data-page')); });
+  });
+
+  // 전체 영상 목록 [영상 ID, 제목, 게시일, 누적 조회수, 누적 예상 수익]
+  function resetVids(v) {
+    state.vids = v && v.ok && v.rows ? v : null;
+    state.vidsFetch = 0; state.vidsError = ''; state.vpSorted = null; state.vpShown = 50;
+  }
+  function vidSort() { return state.settings.vidSort === 'views' ? 'views' : 'rev'; }
+  function sortedVids() {
+    var res = state.vids, key = vidSort();
+    if (!res || !res.rows) return [];
+    if (state.vpSorted && state.vpSorted.res === res && state.vpSorted.key === key) return state.vpSorted.list;
+    var list = res.rows.map(function (r) {
+      return { id: String(r[0] || ''), title: String(r[1] === null || r[1] === undefined ? '' : r[1]), pub: String(r[2] || ''), views: Number(r[3]) || 0, rev: Number(r[4]) || 0 };
+    }).filter(function (v) { return v.id; });
+    list.sort(key === 'views'
+      ? function (a, b) { return b.views - a.views || b.rev - a.rev; }
+      : function (a, b) { return b.rev - a.rev || b.views - a.views; });
+    list.forEach(function (v, i) { v.rank = i + 1; }); // 검색해도 전체 순위를 그대로 보여 줌
+    state.vpSorted = { res: res, key: key, list: list };
+    return list;
+  }
+  function vidRow(v, byViews) {
+    var a = document.createElement('a');
+    a.className = 'vid-row';
+    if (!/^demo-/.test(v.id)) { a.href = 'https://youtu.be/' + encodeURIComponent(v.id); a.target = '_blank'; a.rel = 'noopener'; }
+    var rk = document.createElement('span'); rk.className = 'rk num' + (v.rank <= 3 ? ' top' : ''); rk.textContent = String(v.rank);
+    var vt = document.createElement('span'); vt.className = 'vt';
+    var b = document.createElement('b'); b.textContent = v.title || '(제목 없음)';
+    var sm = document.createElement('small'); sm.className = 'num';
+    sm.textContent = (v.pub ? dotDate(v.pub) + ' · ' : '') + (byViews ? '수익 ' + won(v.rev) : '조회수 ' + plain(v.views) + '회');
+    vt.appendChild(b); vt.appendChild(sm);
+    var amt = document.createElement('span'); amt.className = 'amt num';
+    amt.textContent = byViews ? plain(v.views) + '회' : won(v.rev);
+    a.appendChild(rk); a.appendChild(vt); a.appendChild(amt);
+    a.setAttribute('aria-label', v.rank + '위 ' + (v.title || '제목 없음') + ', 수익 ' + won(v.rev) + ', 조회수 ' + plain(v.views) + '회' + (v.pub ? ', ' + dotDate(v.pub) + ' 게시' : ''));
+    return a;
+  }
+  function renderVidPage() {
+    var res = state.vids, has = !!(res && res.rows);
+    var msg = $('vp-msg'), list = $('vp-list'), more = $('vp-more');
+    $('page-vid').classList.toggle('vp-loading', !!state.vidsLoading && has);
+    document.querySelectorAll('#vp-sort [data-sort]').forEach(function (b) {
+      b.setAttribute('aria-selected', String(b.getAttribute('data-sort') === vidSort()));
+    });
+    $('vp-retry').hidden = true;
+    list.textContent = '';
+    more.hidden = true;
+    if (!has) {
+      $('vp-sub').textContent = '채널 개설 이후 올린 모든 영상의 누적 수익·조회수 순위예요.';
+      $('vp-sum').hidden = true; $('vp-sort').hidden = true; $('vp-search').hidden = true;
+      $('vp-note').textContent = '';
+      msg.textContent = state.vidsLoading ? '영상 목록을 불러오는 중… 처음에는 조금 걸릴 수 있어요.' : state.vidsError || '';
+      msg.hidden = !msg.textContent;
+      $('vp-retry').hidden = !!state.vidsLoading || !state.vidsError;
+      return;
+    }
+    var all = sortedVids(), byViews = vidSort() === 'views';
+    var tv = 0, tr = 0;
+    all.forEach(function (v) { tv += v.views; tr += v.rev; });
+    $('vp-sub').textContent = (res.created ? '채널 개설(' + dotDate(res.created) + ') 이후 ' : '') + '올린 영상 ' + plain(all.length) + '개';
+    $('vp-sum').hidden = !all.length; $('vp-sort').hidden = !all.length; $('vp-search').hidden = !all.length;
+    $('vp-rev').textContent = won(tr);
+    $('vp-views').textContent = plain(tv) + '회';
+    $('vp-basis').textContent = '수익은 ' + (res.revEnd ? md(res.revEnd) + '까지' : '지금까지') + ', 조회수는 지금까지 쌓인 값이에요.' +
+      (res.at ? ' 매일 아침 새로 받아요 (마지막 ' + whenText(res.at) + ').' : '');
+    var q = (state.vpQuery || '').trim().toLowerCase();
+    var shown = !q ? all : all.filter(function (v) { return v.title.toLowerCase().indexOf(q) >= 0; });
+    shown.slice(0, state.vpShown).forEach(function (v) {
+      var li = document.createElement('li');
+      li.appendChild(vidRow(v, byViews));
+      list.appendChild(li);
+    });
+    var left = shown.length - state.vpShown;
+    more.hidden = left <= 0;
+    more.textContent = left > 50 ? '50개 더 보기 (남은 ' + plain(left) + '개)' : '남은 ' + plain(left) + '개 모두 보기';
+    msg.textContent = !all.length ? '아직 올린 영상이 없어요.' : !shown.length ? '“' + state.vpQuery.trim() + '” 제목의 영상이 없어요.' : '';
+    msg.hidden = !msg.textContent;
+    $('vp-note').textContent = all.length ? '수익은 유튜브 스튜디오의 예상 수익을 영상별로 받은 값이라, 멤버십처럼 영상에 잡히지 않는 수익은 빠져 있어 채널 전체 수익과 조금 다를 수 있어요. 영상을 누르면 유튜브에서 열려요.' : '';
+  }
+  function loadVids(refresh) {
+    if (state.vidsLoading) return state.vidsLoading;
+    var before = state.vids && state.vids.at, demo = state.demo;
+    state.vidsError = '';
+    // 처음 받을 때는 서버가 유튜브에서 목록을 새로 모으느라 오래 걸릴 수 있어 넉넉히 기다림
+    var p = api('allVideos', refresh ? { refresh: true } : null, null, 90000).then(function (res) {
+      if (demo !== state.demo) return;
+      if (handleAuthError(res)) { state.vidsError = (res && res.message) || '잠시 뒤 다시 시도해주세요.'; return; }
+      if (!res || !res.ok) {
+        state.vidsError = (res && res.message) || '영상 목록을 가져오지 못했어요.';
+        if (state.vids) toast(state.vidsError);
+        return;
+      }
+      state.vids = res; state.vidsFetch = Date.now(); state.vpSorted = null;
+      if (!state.demo) save(KEY.vids, res);
+      if (res.warn) toast(res.warn);
+      else if (refresh) toast(res.at && res.at !== before ? '영상 목록을 새로 받았어요.' : '방금 받은 목록이에요. 1시간에 한 번 새로 받을 수 있어요.');
+    }).catch(function (err) {
+      state.vidsError = err && err.name === 'AbortError'
+        ? '서버 응답이 너무 늦어요. 잠시 뒤 다시 시도해주세요.'
+        : '서버에 연결하지 못했어요. 인터넷 연결을 확인한 뒤 다시 시도해주세요.';
+      if (state.vids) toast(state.vidsError);
+    }).finally(function () {
+      state.vidsLoading = null;
+      syncSpin();
+      if (state.page === 'vid' && !$('main').hidden) renderVidPage();
+    });
+    state.vidsLoading = p;
+    syncSpin();
+    if (state.page === 'vid') renderVidPage();
+    return p;
+  }
+  document.querySelectorAll('#vp-sort [data-sort]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.settings.vidSort = b.getAttribute('data-sort') === 'views' ? 'views' : 'rev';
+      save(KEY.settings, state.settings);
+      state.vpShown = 50;
+      renderVidPage();
+    });
+  });
+  $('vp-q').addEventListener('input', function (e) {
+    state.vpQuery = e.target.value;
+    state.vpShown = 50;
+    renderVidPage();
+  });
+  $('vp-more').addEventListener('click', function () {
+    state.vpShown += 50;
+    renderVidPage();
+  });
+  $('vp-retry').addEventListener('click', function () { loadVids(false); });
 
   /* ───────── 시트(아래에서 올라오는 창) ───────── */
   function openSheet(id) {
@@ -1686,7 +1926,10 @@ button { cursor: pointer; }
     save(KEY.pin, null);
     save(KEY.token, null);
     save(KEY.cache, null);
+    save(KEY.vids, null);
     state.data = null; state.demo = false;
+    resetVids(null);
+    setPage('rev');
     closeSheet('sheet-settings');
     $('banner').hidden = true;
     showLock();
@@ -1755,6 +1998,21 @@ button { cursor: pointer; }
       }).sort(function (x, y) { return y.rev - x.rev; });
       var tv = items.reduce(function (s, x) { return s + x.views; }, 0) * 1.6, tr = items.reduce(function (s, x) { return s + x.rev; }, 0) * 1.4;
       return { ok: true, start: extra.start, end: end, items: items, views: Math.round(tv), revenue: Math.round(tr), rpm: Math.round(tr / tv * 1000) };
+    }
+    if (action === 'allVideos') {
+      var t0 = today(), created = addDays(t0, -720), rows = [], sd = 11;
+      var rnd2 = function () { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+      var kinds = [['블랙컴뱃 V GAME ', '화 총정리', 4200], ['격투 세계관 총정리 ', '부', 3600], ['라이브 다시보기 #', '', 2600],
+        ['대회 리뷰 라이브 ', '회', 2300], ['쇼츠: 명장면 모음 ', '', 300]];
+      for (var i = 0; i < 96; i++) {
+        var k = kinds[i % 5], pub = addDays(created, Math.round(i * 7.4 + rnd2() * 5));
+        if (pub > t0) pub = t0;
+        var age = Math.max(1, dayDiff(pub, t0));
+        var views = Math.round((800 + rnd2() * 30000) * Math.min(1, age / 30) * (k[2] < 1000 ? 4 : 1));
+        rows.push(['demo-v' + i, k[0] + (Math.floor(i / 5) + 1) + k[1] + ' (예시)', pub, views, age <= 3 ? 0 : Math.round(views * k[2] * (0.6 + rnd2() * 0.8) / 1000)]);
+      }
+      rows.sort(function (x, y) { return y[4] - x[4] || y[3] - x[3]; });
+      return { ok: true, at: t0 + ' 07:03', revEnd: (d && d.ytLatest) || addDays(t0, -2), created: created, rows: rows };
     }
     return Object.assign({}, d, action === 'refresh' ? { notice: '예시 데이터에서는 새로 가져오지 않아요.' } : {});
   }
