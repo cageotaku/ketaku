@@ -182,7 +182,7 @@ button { cursor: pointer; }
 .tape-bar .seg.solo { border-radius: 5px; }
 .tape-bar.empty { background: var(--press); border-radius: 5px; }
 .tape-bottom { margin-top: 8px; font-size: 16px; font-weight: 600; }
-.context { margin: 16px 0 0; font-size: 14px; color: var(--ink-2); }
+.context { margin: 16px 0 0; font-size: 14px; color: var(--ink-2); white-space: pre-line; }
 .note { margin: 6px 0 0; font-size: 13px; color: var(--ink-3); }
 
 /* 차트 */
@@ -261,6 +261,16 @@ button { cursor: pointer; }
 .don-btn .amt small { display: block; font-size: 12px; font-weight: 500; color: var(--ink-3); }
 .don-btn.rank { grid-template-columns: 34px minmax(0, 1fr) auto; }
 .sec-note { margin: -4px 0 10px; }
+.vid-note { margin: -16px 0 24px; }
+.vid-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 0 12px;
+  width: calc(100% + 16px); margin: 0 -8px; padding: 9px 8px; min-height: 60px; border-radius: 10px; color: inherit; text-decoration: none; }
+.vid-row:active { background: var(--press); }
+.vid-row .rk { font-size: 15px; font-weight: 800; color: var(--ink-2); text-align: center; }
+.vid-row .rk.top { color: var(--ink); }
+.vid-row .vt { min-width: 0; line-height: 1.3; }
+.vid-row .vt b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 15px; font-weight: 600; }
+.vid-row .vt small { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vid-row .amt { font-size: 15px; font-weight: 700; text-align: right; white-space: nowrap; }
 .don-btn .rk { font-size: 15px; font-weight: 800; color: var(--ink-2); text-align: center; }
 .don-btn .rk.top { color: var(--ink); }
 .search { display: block; margin: 0 0 10px; }
@@ -420,6 +430,13 @@ button { cursor: pointer; }
     <button type="button" role="tab" data-src="1" aria-selected="false">유튜브</button>
   </div>
 
+  <section aria-labelledby="vid-title" id="vid-sec" hidden>
+    <div class="sec-head"><h3 id="vid-title">이 기간 영상별 수익 TOP 5</h3><span id="vid-rpm" class="legend num"></span></div>
+    <ol id="vid-list" class="dons"></ol>
+    <p id="vid-msg" class="empty-note" hidden></p>
+    <p id="vid-note" class="note vid-note" hidden></p>
+  </section>
+
   <section aria-labelledby="don-title" id="don-sec" hidden>
     <div class="sec-head"><h3 id="don-title">이 기간 후원 내역</h3><span id="don-count" class="legend num"></span></div>
     <ul id="don-list" class="dons"></ul>
@@ -526,7 +543,7 @@ button { cursor: pointer; }
     </div>
     <div class="settings-group">
       <button type="button" class="secondary" id="btn-logout">PIN 다시 입력하기</button>
-      <p class="foot" style="margin-top:12px">케타쿠 수익 앱 1.0</p>
+      <p class="foot" style="margin-top:12px" id="app-version">케타쿠 수익 앱</p>
     </div>
     <button type="button" class="primary" data-close>닫기</button>
   </div>
@@ -560,7 +577,9 @@ button { cursor: pointer; }
   /* ───────── 설정 · 저장소 ───────── */
   var CFG = window.KETAKU_CONFIG || {};
   var TZ = 'Asia/Seoul';
-  var KEY = { pin: 'ketaku.pin', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view' };
+  var APP_VERSION = '1.3';
+  // pin은 예전 앱이 저장하던 값(열쇠로 바꾸면 지움). token = 서버가 준 이 기기 전용 열쇠
+  var KEY = { pin: 'ketaku.pin', token: 'ketaku.token', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view' };
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
   function save(k, v) {
@@ -747,6 +766,7 @@ button { cursor: pointer; }
     renderHero(view, key, cur);
     renderChart(view, key, cur);
     renderList(view, key, cur);
+    renderVideos(view, key);
     renderDonations(view, key);
     renderRanking(view, key);
     renderYtAll();
@@ -776,6 +796,56 @@ button { cursor: pointer; }
     $('status-line').textContent = line;
   }
 
+  /* ── 비교 문장 ──
+     유튜브는 2~3일 늦게 들어와서 아직 집계 안 된 날은 0원이에요. 그런 날이 들어간 기간은
+     유튜브 반영일까지만 잘라 지난 기간의 같은 길이와 비교하고, 하나도 반영 안 됐으면 비교하지 않음 */
+  function dayDiff(a, b) { return Math.round((parse(b) - parse(a)) / 86400000); }
+  function josaGwa(word) {
+    var c = String(word).charCodeAt(String(word).length - 1) - 0xAC00;
+    return c >= 0 && c < 11172 && c % 28 ? '과' : '와';
+  }
+  function pctText(now, before) {
+    var diff = (now - before) / before * 100, r = Math.round(Math.abs(diff));
+    return r === 0 ? '과 거의 같아요' : '보다 ' + r + '% ' + (diff > 0 ? '늘었어요' : '줄었어요');
+  }
+  function ytLatestNow() { return state.demo ? state.data.ytLatest : state.idx.ytLatest; }
+
+  // 이번 달: 지금까지의 하루 평균으로 본 예상 마감액 + 지난달 같은 기간(1일~유튜브 반영일) 비교
+  function monthOutlook(key) {
+    var V = VIEWS.month, start = V.start(key), end = V.end(key), t = today(), latest = ytLatestNow();
+    if (!latest || latest < start) return '';
+    var ytEnd = latest < t ? latest : addDays(t, -1);
+    if (ytEnd < start) return '';
+    var dim = dayDiff(start, end) + 1, nYt = dayDiff(start, ytEnd) + 1, nToon = dayDiff(start, t) + 1;
+    var proj = (sumRange(start, ytEnd).yt / nYt + sumRange(start, t).toon / nToon) * dim;
+    var line1 = '이번 달 예상 마감액 약 ' + won(Math.round(proj / 1000) * 1000);
+    var pKey = V.prev(key), pStart = V.start(pKey), pEnd = addDays(pStart, nYt - 1);
+    if (pEnd > V.end(pKey)) pEnd = V.end(pKey);
+    var a = sumRange(start, ytEnd).total, b = sumRange(pStart, pEnd).total;
+    var label = '지난달 같은 기간(1~' + (+ytEnd.slice(8)) + '일)';
+    return line1 + '\n' + (b > 0 ? label + pctText(a, b) : label + ' 기록이 없어요');
+  }
+
+  function contextText(view, key, cur, s) {
+    var V = VIEWS[view], latest = ytLatestNow(), start = V.start(key), end = V.end(key);
+    var prevKey = V.prev(key), pStart = V.start(prevKey);
+    if (key === cur) {
+      if (view === 'month') { var m = monthOutlook(key); if (m) return m; }
+      var prev = periodSum(view, prevKey);
+      if (view === 'day') return V.prevName + ' ' + won(prev.total) + (latest && V.end(prevKey) > latest ? ' (유튜브 집계 전)' : '');
+      return V.prevName + ' 전체 ' + won(prev.total);
+    }
+    if (latest && start > latest) return '유튜브가 집계되면 ' + V.cmpName + josaGwa(V.cmpName) + ' 비교해 드릴게요';
+    if (latest && end > latest) {
+      var a = sumRange(start, latest), b = sumRange(pStart, addDays(pStart, dayDiff(start, latest)));
+      return b.total > 0
+        ? V.cmpName + ' 같은 기간' + pctText(a.total, b.total) + ' (유튜브 ' + md(latest) + '까지 기준)'
+        : V.cmpName + ' 같은 기간 기록이 없어요';
+    }
+    var p2 = periodSum(view, prevKey);
+    return p2.total > 0 ? V.cmpName + ' ' + won(p2.total) + pctText(s.total, p2.total) : V.cmpName + ' 기록이 없어요';
+  }
+
   function renderHero(view, key, cur) {
     var V = VIEWS[view];
     var s = periodSum(view, key);
@@ -803,18 +873,8 @@ button { cursor: pointer; }
     $('yt-val').textContent = won(s.yt);
     $('toon-val').textContent = won(s.toon);
 
-    // 비교 문장
-    var prevKey = V.prev(key), prev = periodSum(view, prevKey), ctx = '';
-    if (key === cur) {
-      ctx = V.prevName + ' ' + (view === 'day' ? '' : '전체 ') + won(prev.total);
-    } else if (prev.total > 0) {
-      var diff = (s.total - prev.total) / prev.total * 100;
-      var r = Math.round(Math.abs(diff));
-      ctx = V.cmpName + ' ' + won(prev.total) + (r === 0 ? '과 거의 같아요' : '보다 ' + r + '% ' + (diff > 0 ? '늘었어요' : '줄었어요'));
-    } else {
-      ctx = V.cmpName + ' 기록이 없어요';
-    }
-    $('context').textContent = ctx;
+    // 비교 문장 (이번 달이면 예상 마감액과 지난달 같은 기간 비교)
+    $('context').textContent = contextText(view, key, cur, s);
 
     // 유튜브 반영 지연 안내
     var lag = '', latest = state.idx.ytLatest, end = V.end(key), t = today();
@@ -1104,6 +1164,56 @@ button { cursor: pointer; }
       function () { renderRanking(view, key); });
   }
 
+  // 영상별 수익 TOP 5 · RPM (유튜브 탭). 서버에서 기간별로 받아 기억해 둠
+  function renderVideos(view, key) {
+    var idx = state.idx, on = idx.hasDon && donorSrc() === 1;
+    $('vid-sec').hidden = !on;
+    if (!on) return;
+    var r = periodRange(view, key), ck = r[0] + '_' + r[1];
+    state.vidCache = state.vidCache || {};
+    var res = state.vidCache[ck];
+    var list = $('vid-list'), msg = $('vid-msg'), note = $('vid-note'), rpm = $('vid-rpm');
+    list.textContent = ''; note.hidden = true; rpm.textContent = '';
+    if (!res) {
+      msg.textContent = '불러오는 중…'; msg.hidden = false;
+      if (state.vidLoading !== ck) {
+        state.vidLoading = ck;
+        api('videos', { start: r[0], end: r[1] }).then(function (d) {
+          if (handleAuthError(d)) return;
+          state.vidCache[ck] = d && d.ok ? d : { ok: false, message: (d && d.message) || '영상별 수익을 불러오지 못했어요.' };
+        }).catch(function () {
+          state.vidCache[ck] = { ok: false, message: '서버에 연결하지 못했어요.', retry: true };
+        }).finally(function () {
+          if (state.vidLoading === ck) state.vidLoading = null;
+          if (state.data && donorSrc() === 1) { var k2 = selectedKey(), r2 = periodRange(state.view, k2); if (r2[0] + '_' + r2[1] === ck) renderVideos(state.view, k2); }
+          if (state.vidCache[ck] && state.vidCache[ck].retry) delete state.vidCache[ck];
+        });
+      }
+      return;
+    }
+    if (!res.ok) { msg.textContent = res.message; msg.hidden = false; return; }
+    if (res.pending) { msg.textContent = '이 기간은 유튜브가 아직 집계 전이에요.'; msg.hidden = false; return; }
+    if (!res.items || !res.items.length) { msg.textContent = '이 기간에 수익이 난 영상이 없어요.'; msg.hidden = false; return; }
+    msg.hidden = true;
+    rpm.textContent = 'RPM ' + won(res.rpm);
+    res.items.forEach(function (v, i) {
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.className = 'vid-row'; a.href = 'https://youtu.be/' + encodeURIComponent(v.id); a.target = '_blank'; a.rel = 'noopener';
+      var rk = document.createElement('span'); rk.className = 'rk num' + (i < 3 ? ' top' : ''); rk.textContent = String(i + 1);
+      var vt = document.createElement('span'); vt.className = 'vt';
+      var b = document.createElement('b'); b.textContent = v.title;
+      var sm = document.createElement('small'); sm.className = 'num'; sm.textContent = '조회수 ' + plain(v.views) + ' · RPM ' + won(v.rpm);
+      vt.appendChild(b); vt.appendChild(sm);
+      var amt = document.createElement('span'); amt.className = 'amt num'; amt.textContent = won(v.rev);
+      a.appendChild(rk); a.appendChild(vt); a.appendChild(amt);
+      a.setAttribute('aria-label', (i + 1) + '위 ' + v.title + ', ' + won(v.rev) + ', 조회수 ' + plain(v.views));
+      li.appendChild(a); list.appendChild(li);
+    });
+    note.textContent = 'RPM은 조회수 1,000회당 수익이에요.' + (res.end && res.end < r[1] ? ' 유튜브는 ' + md(res.end) + '까지 반영된 기준이에요.' : '');
+    note.hidden = false;
+  }
+
   // 유튜브 역대 수익(예상): 보여 주는 시작일부터 받은 날짜를 모두 더함 (유튜브 탭에서만)
   function dotDate(d) { return d.slice(0, 10).replace(/-/g, '.'); }
   function renderYtAll() {
@@ -1216,10 +1326,20 @@ button { cursor: pointer; }
   }
 
   /* ───────── 서버 통신 ───────── */
-  function api(action, extra) {
+  function deviceLabel() {
+    var ua = navigator.userAgent || '';
+    return /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : 'PC';
+  }
+  // 접속 정보: 이 기기 열쇠가 있으면 열쇠로, 없으면(처음 또는 예전 앱에서 넘어온 경우) PIN으로 확인받고 열쇠를 받음
+  function authBody(pinOverride) {
+    var token = load(KEY.token);
+    if (token && !pinOverride) return { token: token };
+    return { pin: pinOverride || load(KEY.pin), wantToken: true, device: deviceLabel() };
+  }
+  function api(action, extra, pinOverride) {
     if (state.demo) return Promise.resolve(demoApi(action, extra || {}));
     var url = serverUrl();
-    var body = Object.assign({ pin: load(KEY.pin), action: action }, extra || {});
+    var body = Object.assign(authBody(pinOverride), { action: action }, extra || {});
     var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 30000) : null;
     return fetch(url, {
@@ -1234,12 +1354,17 @@ button { cursor: pointer; }
         try { return JSON.parse(text); }
         catch (e) { throw new Error('서버 응답을 읽지 못했어요. 웹 앱 배포의 액세스 권한이 "모든 사용자"인지 확인해주세요.'); }
       });
+    }).then(function (data) {
+      // 서버가 열쇠를 주면 저장하고, 기기에 남아 있던 PIN은 지움
+      if (data && data.ok && data.token) { save(KEY.token, data.token); save(KEY.pin, null); keepStorage(); }
+      return data;
     }).finally(function () { if (timer) clearTimeout(timer); });
   }
 
   function handleAuthError(res) {
-    if (res && res.error === 'PIN') {
+    if (res && (res.error === 'PIN' || res.error === 'TOKEN')) {
       save(KEY.pin, null);
+      save(KEY.token, null);
       showLock(res.message || 'PIN을 다시 입력해주세요.');
       return true;
     }
@@ -1256,6 +1381,7 @@ button { cursor: pointer; }
   }
 
   function applyData(d) {
+    if (!state.data || state.data.ytLatest !== d.ytLatest) state.vidCache = {}; // 유튜브가 새로 반영되면 영상 순위도 다시
     state.data = d;
     state.idx = buildIndex(d);
     if (!state.demo) save(KEY.cache, d);
@@ -1266,6 +1392,12 @@ button { cursor: pointer; }
     if (!state.demo && d.lastError) issues.push(['유튜브 업데이트 오류 ', d.lastError]);
     if (!state.demo && d.toonAuto && (d.toonStale || d.toonError)) {
       issues.push(['투네이션 자동 기록 확인 필요 ', d.toonError || ('마지막 확인 ' + (d.toonSeen ? whenText(d.toonSeen) : '없음') + ' 이후 소식이 없어요.')]);
+    }
+    if (!state.demo && d.toonBad > 0) {
+      issues.push(['투네이션 시트 확인 필요 ', d.toonBad + '줄은 날짜나 금액을 읽지 못해 합계에서 빠졌어요. 시트에서 빨간 줄을 고쳐주세요.']);
+    }
+    if (!state.demo && d.pinAlert && d.pinAlert.at) {
+      issues.push(['PIN 잠금 ', whenText(d.pinAlert.at) + '에 누군가 PIN을 여러 번 틀려서 PIN 확인을 잠시 멈췄어요. 내가 한 게 아니면 시트 메뉴에서 PIN을 바꿔주세요.']);
     }
     if (issues.length) {
       banner.textContent = '';
@@ -1345,16 +1477,18 @@ button { cursor: pointer; }
     }
     if (!/^\d{4,}$/.test(pin)) { err.textContent = '숫자 PIN을 입력해주세요.'; err.hidden = false; return; }
     state.demo = false;
-    save(KEY.pin, pin);
+    save(KEY.token, null);
     $('lock-submit').disabled = true;
     $('lock-submit').textContent = '여는 중';
-    api('summary').then(function (res) {
-      if (res && res.ok) { state.lastFetch = Date.now(); keepStorage(); showMain(); applyData(res); return; }
-      save(KEY.pin, null);
+    api('summary', null, pin).then(function (res) {
+      if (res && res.ok) {
+        // 열쇠를 받았으면 PIN은 기기에 남기지 않음 (열쇠를 주지 않는 예전 서버면 PIN을 저장)
+        if (!res.token) save(KEY.pin, pin);
+        state.lastFetch = Date.now(); keepStorage(); showMain(); applyData(res); return;
+      }
       err.textContent = (res && res.message) || '열지 못했어요.';
       err.hidden = false;
     }).catch(function () {
-      save(KEY.pin, null);
       err.textContent = '서버에 연결하지 못했어요. 서버 주소와 인터넷 연결을 확인해주세요.';
       err.hidden = false;
     }).finally(function () {
@@ -1388,6 +1522,7 @@ button { cursor: pointer; }
       state.expanded = null;
       if (!state.data) return;
       var k = selectedKey();
+      renderVideos(state.view, k);
       renderDonations(state.view, k);
       renderRanking(state.view, k);
       renderYtAll();
@@ -1433,6 +1568,7 @@ button { cursor: pointer; }
   function setDate(offset) {
     var v = addDays(today(), offset);
     $('add-date').value = v;
+    state.addReqId = newReqId();
     markDateChips();
   }
   function markDateChips() {
@@ -1441,7 +1577,19 @@ button { cursor: pointer; }
       c.setAttribute('aria-pressed', String(addDays(today(), +c.getAttribute('data-offset')) === v));
     });
   }
+  // 기록마다 붙이는 요청 ID: 응답을 못 받아 다시 눌러도 서버가 같은 기록을 두 번 넣지 않음.
+  // 내용(금액·날짜·메모)을 바꾸면 새 기록으로 보고 새 ID를 씀
+  function newReqId() {
+    var a = new Uint8Array(12);
+    (window.crypto || window.msCrypto).getRandomValues(a);
+    return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  }
+  ['add-amount', 'add-date', 'add-memo'].forEach(function (id) {
+    $(id).addEventListener('input', function () { state.addReqId = newReqId(); });
+    $(id).addEventListener('change', function () { state.addReqId = newReqId(); });
+  });
   $('fab').addEventListener('click', function () {
+    state.addReqId = newReqId();
     $('add-amount').value = '';
     $('add-memo').value = '';
     $('add-error').hidden = true;
@@ -1469,9 +1617,11 @@ button { cursor: pointer; }
     if (date > today()) { err.textContent = '오늘 이후 날짜는 기록할 수 없어요.'; err.hidden = false; return; }
     var btn = $('add-submit');
     btn.disabled = true; btn.textContent = '기록하는 중';
-    api('addToon', { date: date, amount: amount, memo: memo }).then(function (res) {
+    if (!state.addReqId) state.addReqId = newReqId();
+    api('addToon', { date: date, amount: amount, memo: memo, reqId: state.addReqId }).then(function (res) {
       if (handleAuthError(res)) { closeSheet('sheet-add'); return; }
       if (!res || !res.ok) { err.textContent = (res && res.message) || '기록하지 못했어요.'; err.hidden = false; return; }
+      state.addReqId = null;
       applyData(res);
       // 기록한 날짜가 들어 있는 기간을 보여줌
       state.selected[state.view] = VIEWS[state.view].key(date);
@@ -1534,6 +1684,7 @@ button { cursor: pointer; }
   });
   $('btn-logout').addEventListener('click', function () {
     save(KEY.pin, null);
+    save(KEY.token, null);
     save(KEY.cache, null);
     state.data = null; state.demo = false;
     closeSheet('sheet-settings');
@@ -1592,13 +1743,26 @@ button { cursor: pointer; }
       d.toon = d.toon.filter(function (x) { return x.id !== extra.id; });
       return Object.assign({}, d, { notice: '삭제했어요. (예시)' });
     }
+    if (action === 'videos') {
+      var end = extra.end > d.ytLatest ? d.ytLatest : extra.end;
+      if (extra.start > end) return { ok: true, pending: true, items: [], start: extra.start, end: end };
+      var days = dayDiff(extra.start, end) + 1;
+      var names = ['블랙컴뱃 V GAME 1화 총정리', '세계관 총정리 3부', '라이브 다시보기 하이라이트', '대회 리뷰 라이브', '쇼츠 모음'];
+      var rpms = [4200, 3600, 2900, 2300, 700];
+      var items = names.map(function (n, i) {
+        var views = Math.round((9000 - i * 1400) * days * (i === 4 ? 3 : 1));
+        return { id: 'demo' + i, title: n + ' (예시)', views: views, rev: Math.round(views * rpms[i] / 1000), rpm: rpms[i] };
+      }).sort(function (x, y) { return y.rev - x.rev; });
+      var tv = items.reduce(function (s, x) { return s + x.views; }, 0) * 1.6, tr = items.reduce(function (s, x) { return s + x.rev; }, 0) * 1.4;
+      return { ok: true, start: extra.start, end: end, items: items, views: Math.round(tv), revenue: Math.round(tr), rpm: Math.round(tr / tv * 1000) };
+    }
     return Object.assign({}, d, action === 'refresh' ? { notice: '예시 데이터에서는 새로 가져오지 않아요.' } : {});
   }
 
   /* ───────── 시작 ───────── */
   (function start() {
-    var pin = load(KEY.pin);
-    if (!pin || !serverUrl()) { showLock(); return; }
+    $('app-version').textContent = '케타쿠 수익 앱 ' + APP_VERSION;
+    if ((!load(KEY.token) && !load(KEY.pin)) || !serverUrl()) { showLock(); return; }
     keepStorage();
     showMain();
     var cached = load(KEY.cache, true);
