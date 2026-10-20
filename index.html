@@ -275,6 +275,19 @@ button { cursor: pointer; }
 .vid-row .vt b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 15px; font-weight: 600; }
 .vid-row .vt small { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vid-row .amt { font-size: 15px; font-weight: 700; text-align: right; white-space: nowrap; }
+/* 썸네일이 있는 영상 줄: 순위 · 썸네일 · 제목/금액 */
+.vid-row.tr { grid-template-columns: 26px 112px minmax(0, 1fr); gap: 0 10px; padding: 8px; }
+.vid-row.tr .rk { font-size: 14px; }
+.vid-row .th { position: relative; display: block; width: 112px; height: 63px; border-radius: 8px; overflow: hidden; background: var(--press); }
+.vid-row .th::before { content: ''; position: absolute; left: 50%; top: 50%; margin: -7px 0 0 -4px; border-style: solid; border-width: 7px 0 7px 11px; border-color: transparent transparent transparent var(--ink-3); opacity: 0.55; }
+.vid-row .th img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.vid-row.tr .vt b { font-size: 14.5px; line-height: 1.32; }
+.vid-row.tr .vt .amt { display: block; margin-top: 3px; text-align: left; line-height: 1.25; }
+.vid-row.tr .vt small { margin-top: 1px; }
+@media (max-width: 360px) {
+  .vid-row.tr { grid-template-columns: 22px 96px minmax(0, 1fr); gap: 0 8px; }
+  .vid-row .th { width: 96px; height: 54px; }
+}
 .don-btn .rk { font-size: 15px; font-weight: 800; color: var(--ink-2); text-align: center; }
 .don-btn .rk.top { color: var(--ink); }
 .search { display: block; margin: 0 0 10px; }
@@ -645,7 +658,7 @@ button { cursor: pointer; }
   /* ───────── 설정 · 저장소 ───────── */
   var CFG = window.KETAKU_CONFIG || {};
   var TZ = 'Asia/Seoul';
-  var APP_VERSION = '1.5';
+  var APP_VERSION = '1.6';
   // pin은 예전 앱이 저장하던 값(열쇠로 바꾸면 지움). token = 서버가 준 이 기기 전용 열쇠
   var KEY = { pin: 'ketaku.pin', token: 'ketaku.token', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view', vids: 'ketaku.vids' };
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -1297,14 +1310,15 @@ button { cursor: pointer; }
     res.items.forEach(function (v, i) {
       var li = document.createElement('li');
       var a = document.createElement('a');
-      a.className = 'vid-row'; a.href = 'https://youtu.be/' + encodeURIComponent(v.id); a.target = '_blank'; a.rel = 'noopener';
+      a.className = 'vid-row tr';
+      if (!/^demo/.test(v.id)) { a.href = 'https://youtu.be/' + encodeURIComponent(v.id); a.target = '_blank'; a.rel = 'noopener'; }
       var rk = document.createElement('span'); rk.className = 'rk num' + (i < 3 ? ' top' : ''); rk.textContent = String(i + 1);
       var vt = document.createElement('span'); vt.className = 'vt';
       var b = document.createElement('b'); b.textContent = v.title;
-      var sm = document.createElement('small'); sm.className = 'num'; sm.textContent = '조회수 ' + plain(v.views) + ' · RPM ' + won(v.rpm);
-      vt.appendChild(b); vt.appendChild(sm);
       var amt = document.createElement('span'); amt.className = 'amt num'; amt.textContent = won(v.rev);
-      a.appendChild(rk); a.appendChild(vt); a.appendChild(amt);
+      var sm = document.createElement('small'); sm.className = 'num'; sm.textContent = '조회수 ' + plain(v.views) + ' · RPM ' + won(v.rpm);
+      vt.appendChild(b); vt.appendChild(amt); vt.appendChild(sm);
+      a.appendChild(rk); a.appendChild(thumbEl(v.id)); a.appendChild(vt);
       a.setAttribute('aria-label', (i + 1) + '위 ' + v.title + ', ' + won(v.rev) + ', 조회수 ' + plain(v.views));
       li.appendChild(a); list.appendChild(li);
     });
@@ -1705,19 +1719,31 @@ button { cursor: pointer; }
     state.vpSorted = { res: res, key: key, list: list };
     return list;
   }
+  // 유튜브 썸네일(유튜브에 올라간 그대로). 못 불러오면 빈 칸에 재생 표시만 남김
+  function thumbEl(id) {
+    var th = document.createElement('span'); th.className = 'th';
+    if (id && !/^demo/.test(id)) {
+      var img = document.createElement('img');
+      img.alt = ''; img.decoding = 'async'; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
+      img.addEventListener('error', function () { if (img.parentNode) img.parentNode.removeChild(img); });
+      img.src = 'https://i.ytimg.com/vi/' + encodeURIComponent(id) + '/mqdefault.jpg';
+      th.appendChild(img);
+    }
+    return th;
+  }
   function vidRow(v, byViews) {
     var a = document.createElement('a');
-    a.className = 'vid-row';
+    a.className = 'vid-row tr';
     if (!/^demo-/.test(v.id)) { a.href = 'https://youtu.be/' + encodeURIComponent(v.id); a.target = '_blank'; a.rel = 'noopener'; }
     var rk = document.createElement('span'); rk.className = 'rk num' + (v.rank <= 3 ? ' top' : ''); rk.textContent = String(v.rank);
     var vt = document.createElement('span'); vt.className = 'vt';
     var b = document.createElement('b'); b.textContent = v.title || '(제목 없음)';
-    var sm = document.createElement('small'); sm.className = 'num';
-    sm.textContent = (v.pub ? dotDate(v.pub) + ' · ' : '') + (byViews ? '수익 ' + won(v.rev) : '조회수 ' + plain(v.views) + '회');
-    vt.appendChild(b); vt.appendChild(sm);
     var amt = document.createElement('span'); amt.className = 'amt num';
     amt.textContent = byViews ? plain(v.views) + '회' : won(v.rev);
-    a.appendChild(rk); a.appendChild(vt); a.appendChild(amt);
+    var sm = document.createElement('small'); sm.className = 'num';
+    sm.textContent = (v.pub ? dotDate(v.pub) + ' · ' : '') + (byViews ? '수익 ' + won(v.rev) : '조회수 ' + plain(v.views) + '회');
+    vt.appendChild(b); vt.appendChild(amt); vt.appendChild(sm);
+    a.appendChild(rk); a.appendChild(thumbEl(v.id)); a.appendChild(vt);
     a.setAttribute('aria-label', v.rank + '위 ' + (v.title || '제목 없음') + ', 수익 ' + won(v.rev) + ', 조회수 ' + plain(v.views) + '회' + (v.pub ? ', ' + dotDate(v.pub) + ' 게시' : ''));
     return a;
   }
