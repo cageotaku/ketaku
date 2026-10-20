@@ -1725,7 +1725,10 @@ button { cursor: pointer; }
     if (id && !/^demo/.test(id)) {
       var img = document.createElement('img');
       img.alt = ''; img.decoding = 'async'; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
-      img.addEventListener('error', function () { if (img.parentNode) img.parentNode.removeChild(img); });
+      var drop = function () { if (img.parentNode) img.parentNode.removeChild(img); };
+      img.addEventListener('error', drop);
+      // 지워졌거나 비공개인 영상은 유튜브가 120×90 회색 기본 그림을 줘서, 그럴 땐 빈 칸으로
+      img.addEventListener('load', function () { if (img.naturalWidth && img.naturalWidth <= 120) drop(); });
       img.src = 'https://i.ytimg.com/vi/' + encodeURIComponent(id) + '/mqdefault.jpg';
       th.appendChild(img);
     }
