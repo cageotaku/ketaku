@@ -11,6 +11,10 @@
 <meta name="apple-mobile-web-app-title" content="케타쿠 수익">
 <meta name="format-detection" content="telephone=no">
 <title>케타쿠 수익</title>
+<!-- 서버·썸네일 서버에 미리 연결해 첫 요청을 빠르게 -->
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
+<link rel="preconnect" href="https://i.ytimg.com">
 <link rel="manifest" href="manifest.webmanifest?v=2">
 <link rel="apple-touch-icon" href="icon-180.png?v=2">
 <link rel="icon" type="image/png" href="icon-192.png?v=2">
@@ -481,6 +485,7 @@ button { cursor: pointer; }
     <div class="sec-head"><h3 id="vid-title">이 기간 영상별 수익 TOP 5</h3><span id="vid-rpm" class="legend num"></span></div>
     <ol id="vid-list" class="dons"></ol>
     <p id="vid-msg" class="empty-note" hidden></p>
+    <button id="vid-retry" class="secondary more-btn" type="button" hidden>다시 시도</button>
     <p id="vid-note" class="note vid-note" hidden></p>
   </section>
 
@@ -658,9 +663,9 @@ button { cursor: pointer; }
   /* ───────── 설정 · 저장소 ───────── */
   var CFG = window.KETAKU_CONFIG || {};
   var TZ = 'Asia/Seoul';
-  var APP_VERSION = '1.6';
+  var APP_VERSION = '1.7';
   // pin은 예전 앱이 저장하던 값(열쇠로 바꾸면 지움). token = 서버가 준 이 기기 전용 열쇠
-  var KEY = { pin: 'ketaku.pin', token: 'ketaku.token', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view', vids: 'ketaku.vids' };
+  var KEY = { pin: 'ketaku.pin', token: 'ketaku.token', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view', vids: 'ketaku.vids', top: 'ketaku.top' };
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
   function save(k, v) {
@@ -1285,24 +1290,16 @@ button { cursor: pointer; }
     var res = state.vidCache[ck];
     var list = $('vid-list'), msg = $('vid-msg'), note = $('vid-note'), rpm = $('vid-rpm');
     list.textContent = ''; note.hidden = true; rpm.textContent = '';
+    $('vid-retry').hidden = true;
+    prefetchTop(view, VIEWS[view].prev(key));   // 이전 기간도 미리
+    // 미리 받다가 실패했던 기간은 지금 보는 김에 다시 받아 봄
+    if (res && res.retry && !res.seen) { delete state.vidCache[ck]; res = null; }
     if (!res) {
       msg.textContent = '불러오는 중…'; msg.hidden = false;
-      if (state.vidLoading !== ck) {
-        state.vidLoading = ck;
-        api('videos', { start: r[0], end: r[1] }).then(function (d) {
-          if (handleAuthError(d)) return;
-          state.vidCache[ck] = d && d.ok ? d : { ok: false, message: (d && d.message) || '영상별 수익을 불러오지 못했어요.' };
-        }).catch(function () {
-          state.vidCache[ck] = { ok: false, message: '서버에 연결하지 못했어요.', retry: true };
-        }).finally(function () {
-          if (state.vidLoading === ck) state.vidLoading = null;
-          if (state.data && donorSrc() === 1) { var k2 = selectedKey(), r2 = periodRange(state.view, k2); if (r2[0] + '_' + r2[1] === ck) renderVideos(state.view, k2); }
-          if (state.vidCache[ck] && state.vidCache[ck].retry) delete state.vidCache[ck];
-        });
-      }
+      fetchTop(r[0], r[1]);
       return;
     }
-    if (!res.ok) { msg.textContent = res.message; msg.hidden = false; return; }
+    if (!res.ok) { msg.textContent = res.message; msg.hidden = false; $('vid-retry').hidden = !res.retry; return; }
     if (res.pending) { msg.textContent = '이 기간은 유튜브가 아직 집계 전이에요.'; msg.hidden = false; return; }
     if (!res.items || !res.items.length) { msg.textContent = '이 기간에 수익이 난 영상이 없어요.'; msg.hidden = false; return; }
     msg.hidden = true;
@@ -1325,6 +1322,78 @@ button { cursor: pointer; }
     note.textContent = 'RPM은 조회수 1,000회당 수익이에요.' + (res.end && res.end < r[1] ? ' 유튜브는 ' + md(res.end) + '까지 반영된 기준이에요.' : '');
     note.hidden = false;
   }
+
+  // 기간별 TOP 5를 받아 기억(유튜브 반영일이 같으면 앱을 다시 열어도 바로 보여 줌). 동시에 3개까지
+  var topQueue = [], topRunning = 0;
+  state.topInflight = {};
+  function fetchTop(start, end) {
+    state.vidCache = state.vidCache || {};
+    var ck = start + '_' + end, latest = state.idx && state.idx.ytLatest, c = state.vidCache[ck];
+    if ((c && !c.retry) || state.topInflight[ck]) return;   // 실패했던 기간은 다음 기회에 다시 받음
+    if (latest && start > latest) { state.vidCache[ck] = { ok: true, pending: true, items: [] }; topDone(ck); return; }
+    state.topInflight[ck] = true;
+    topQueue.push([start, end, ck]);
+    pumpTop();
+  }
+  function pumpTop() {
+    while (topRunning < 3 && topQueue.length) {
+      var job = topQueue.shift();
+      topRunning++;
+      (function (start, end, ck) {
+        var demo = state.demo;
+        apiRetry('videos', { start: start, end: end }, 60000).then(function (d) {
+          if (demo !== state.demo) return;
+          if (handleAuthError(d)) return;
+          state.vidCache[ck] = d && d.ok ? d : { ok: false, message: (d && d.message) || '영상별 수익을 불러오지 못했어요.', retry: true, seen: isShown(ck) };
+          if (d && d.ok) saveTop();
+        }).catch(function (err) {
+          state.vidCache[ck] = { ok: false, retry: true, seen: isShown(ck), message: err && err.name === 'AbortError'
+            ? '유튜브 응답이 늦어요. 다시 시도를 눌러주세요.' : '서버에 연결하지 못했어요. 다시 시도를 눌러주세요.' };
+        }).finally(function () {
+          topRunning--;
+          delete state.topInflight[ck];
+          topDone(ck);
+          pumpTop();
+        });
+      })(job[0], job[1], job[2]);
+    }
+  }
+  function isShown(ck) {
+    if (!state.data || donorSrc() !== 1 || state.page !== 'rev') return false;
+    var r = periodRange(state.view, selectedKey());
+    return r[0] + '_' + r[1] === ck;
+  }
+  function topDone(ck) {
+    if (!state.data || donorSrc() !== 1 || state.page !== 'rev') return;
+    var k2 = selectedKey(), r2 = periodRange(state.view, k2);
+    if (r2[0] + '_' + r2[1] === ck) renderVideos(state.view, k2);
+  }
+  function prefetchTop(view, key) {
+    if (!state.idx || !key || VIEWS[view].end(key) < state.idx.first) return;
+    var r = periodRange(view, key);
+    fetchTop(r[0], r[1]);
+  }
+  function saveTop() {
+    if (state.demo) return;
+    var keep = {};
+    Object.keys(state.vidCache).forEach(function (k) { if (state.vidCache[k] && state.vidCache[k].ok) keep[k] = state.vidCache[k]; });
+    save(KEY.top, { latest: state.vidCacheLatest, items: keep });
+  }
+  // 앱을 열면 자주 보는 기간의 TOP 5와 전체 영상 목록을 뒤에서 미리 받아 둠
+  function prefetchAll() {
+    if (!state.idx) return;
+    ['month', 'week', 'day'].forEach(function (v) {
+      var k = currentKey(v);
+      prefetchTop(v, k);
+      prefetchTop(v, VIEWS[v].prev(k));
+    });
+    if (!state.vidsLoading && Date.now() - state.vidsFetch > 5 * 60 * 1000) loadVids(false);
+  }
+  $('vid-retry').addEventListener('click', function () {
+    var k = selectedKey(), r = periodRange(state.view, k);
+    delete state.vidCache[r[0] + '_' + r[1]];
+    renderVideos(state.view, k);
+  });
 
   // 유튜브 역대 수익(예상): 보여 주는 시작일부터 받은 날짜를 모두 더함 (유튜브 탭에서만)
   function dotDate(d) { return d.slice(0, 10).replace(/-/g, '.'); }
@@ -1475,6 +1544,16 @@ button { cursor: pointer; }
     }).finally(function () { if (timer) clearTimeout(timer); });
   }
 
+  // 읽기 요청은 연결이 끊기거나 늦거나 응답을 못 읽으면 잠깐 쉬었다 자동으로 다시 시도 (최대 3번)
+  function apiRetry(action, extra, timeoutMs, tries) {
+    tries = tries || 3;
+    return api(action, extra, null, timeoutMs).catch(function (err) {
+      if (tries <= 1 || state.demo) throw err;
+      return new Promise(function (r) { setTimeout(r, tries === 3 ? 800 : 2000); })
+        .then(function () { return apiRetry(action, extra, timeoutMs, tries - 1); });
+    });
+  }
+
   function handleAuthError(res) {
     if (res && (res.error === 'PIN' || res.error === 'TOKEN')) {
       save(KEY.pin, null);
@@ -1495,7 +1574,7 @@ button { cursor: pointer; }
   }
 
   function applyData(d) {
-    if (!state.data || state.data.ytLatest !== d.ytLatest) state.vidCache = {}; // 유튜브가 새로 반영되면 영상 순위도 다시
+    if (state.vidCacheLatest !== d.ytLatest) { state.vidCache = {}; state.vidCacheLatest = d.ytLatest; } // 유튜브가 새로 반영되면 영상 순위도 다시
     state.data = d;
     state.idx = buildIndex(d);
     if (!state.demo) save(KEY.cache, d);
@@ -1531,7 +1610,8 @@ button { cursor: pointer; }
     state.busy = true;
     syncSpin();
     $('main').classList.add('refreshing');
-    return api(action || 'summary').then(function (res) {
+    var call = !action || action === 'summary' ? apiRetry('summary', null, 30000) : api(action);
+    return call.then(function (res) {
       if (handleAuthError(res)) return;
       if (!res || !res.ok) {
         showBanner(res && res.message ? res.message : '데이터를 가져오지 못했어요.');
@@ -1539,6 +1619,7 @@ button { cursor: pointer; }
       }
       state.lastFetch = Date.now();
       applyData(res);
+      prefetchAll();
       if (res.notice) toast(res.notice);
     }).catch(function (err) {
       showBanner(err && err.name === 'AbortError'
@@ -1601,7 +1682,7 @@ button { cursor: pointer; }
         // 열쇠를 받았으면 PIN은 기기에 남기지 않음 (열쇠를 주지 않는 예전 서버면 PIN을 저장)
         if (!res.token) save(KEY.pin, pin);
         resetVids(load(KEY.vids, true));
-        state.lastFetch = Date.now(); keepStorage(); showMain(); applyData(res);
+        state.lastFetch = Date.now(); keepStorage(); showMain(); applyData(res); prefetchAll();
         if (state.page === 'vid') setPage('vid');
         return;
       }
@@ -1663,14 +1744,14 @@ button { cursor: pointer; }
   });
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible' || $('main').hidden || state.demo) return;
-    if (Date.now() - state.lastFetch > 5 * 60 * 1000) refresh('summary');
-    if (state.page === 'vid' && Date.now() - state.vidsFetch > 10 * 60 * 1000) loadVids(false);
+    if (Date.now() - state.lastFetch > 60 * 1000) refresh('summary');
+    else if (Date.now() - state.vidsFetch > 5 * 60 * 1000) loadVids(false);
   });
   var resizeTimer;
   window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
 
   /* ───────── 아래 탭: 수익 / 영상 순위 ───────── */
-  function syncSpin() { $('btn-refresh').classList.toggle('spinning', !!(state.busy || state.vidsLoading)); }
+  function syncSpin() { $('btn-refresh').classList.toggle('spinning', !!(state.busy || (state.vidsLoading && state.page === 'vid'))); }
   function smooth() { return matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'; }
   function setPage(p) {
     p = p === 'vid' ? 'vid' : 'rev';
@@ -1685,10 +1766,11 @@ button { cursor: pointer; }
     });
     hideTip();
     syncFab();
+    syncSpin();
     if (p === 'rev') render();
     else {
       renderVidPage();
-      if (!state.vidsLoading && Date.now() - state.vidsFetch > 10 * 60 * 1000) loadVids(false);
+      if (!state.vidsLoading && Date.now() - state.vidsFetch > 2 * 60 * 1000) loadVids(false);
     }
     // 보고 있던 탭을 다시 누르면 맨 위로, 다른 탭으로 가면 그 탭에서 보던 위치로
     if (same) window.scrollTo({ top: 0, behavior: smooth() });
@@ -1702,6 +1784,7 @@ button { cursor: pointer; }
   function resetVids(v) {
     state.vids = v && v.ok && v.rows ? v : null;
     state.vidsFetch = 0; state.vidsError = ''; state.vpSorted = null; state.vpShown = 50;
+    state.vidCache = {}; state.vidCacheLatest = null;   // 예시 ↔ 내 데이터가 섞이지 않게
   }
   function vidSort() { return state.settings.vidSort === 'views' ? 'views' : 'rev'; }
   function sortedVids() {
@@ -1724,7 +1807,7 @@ button { cursor: pointer; }
     var th = document.createElement('span'); th.className = 'th';
     if (id && !/^demo/.test(id)) {
       var img = document.createElement('img');
-      img.alt = ''; img.decoding = 'async'; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
+      img.alt = ''; img.decoding = 'async'; img.referrerPolicy = 'no-referrer';
       var drop = function () { if (img.parentNode) img.parentNode.removeChild(img); };
       img.addEventListener('error', drop);
       // 지워졌거나 비공개인 영상은 유튜브가 120×90 회색 기본 그림을 줘서, 그럴 땐 빈 칸으로
@@ -1733,6 +1816,20 @@ button { cursor: pointer; }
       th.appendChild(img);
     }
     return th;
+  }
+  // 전체 영상 썸네일을 뒤에서 미리 받아 두면 '더 보기'·검색·정렬 때 바로 보임 (같은 주소라 브라우저가 기억)
+  var thumbSeen = {};
+  function preloadThumbs(rows) {
+    var ids = (rows || []).map(function (r) { return String(r[0] || ''); }).filter(function (id) { return id && !thumbSeen[id]; });
+    var i = 0;
+    (function next() {
+      for (var n = 0; n < 6 && i < ids.length; n++, i++) {
+        var im = new Image(); im.referrerPolicy = 'no-referrer'; im.decoding = 'async';
+        thumbSeen[ids[i]] = true;
+        im.src = 'https://i.ytimg.com/vi/' + encodeURIComponent(ids[i]) + '/mqdefault.jpg';
+      }
+      if (i < ids.length) setTimeout(next, 120);
+    })();
   }
   function vidRow(v, byViews) {
     var a = document.createElement('a');
@@ -1801,7 +1898,7 @@ button { cursor: pointer; }
     var before = state.vids && state.vids.at, demo = state.demo;
     state.vidsError = '';
     // 처음 받을 때는 서버가 유튜브에서 목록을 새로 모으느라 오래 걸릴 수 있어 넉넉히 기다림
-    var p = api('allVideos', refresh ? { refresh: true } : null, null, 90000).then(function (res) {
+    var p = apiRetry('allVideos', refresh ? { refresh: true } : null, 90000).then(function (res) {
       if (demo !== state.demo) return;
       if (handleAuthError(res)) { state.vidsError = (res && res.message) || '잠시 뒤 다시 시도해주세요.'; return; }
       if (!res || !res.ok) {
@@ -1810,7 +1907,7 @@ button { cursor: pointer; }
         return;
       }
       state.vids = res; state.vidsFetch = Date.now(); state.vpSorted = null;
-      if (!state.demo) save(KEY.vids, res);
+      if (!state.demo) { save(KEY.vids, res); preloadThumbs(res.rows); }
       if (res.warn) toast(res.warn);
       else if (refresh) toast(res.at && res.at !== before ? '영상 목록을 새로 받았어요.' : '방금 받은 목록이에요. 1시간에 한 번 새로 받을 수 있어요.');
     }).catch(function (err) {
@@ -1988,6 +2085,8 @@ button { cursor: pointer; }
     save(KEY.token, null);
     save(KEY.cache, null);
     save(KEY.vids, null);
+    save(KEY.top, null);
+    state.vidCache = {}; state.vidCacheLatest = null;
     state.data = null; state.demo = false;
     resetVids(null);
     setPage('rev');
@@ -2085,8 +2184,11 @@ button { cursor: pointer; }
     if ((!load(KEY.token) && !load(KEY.pin)) || !serverUrl()) { showLock(); return; }
     keepStorage();
     showMain();
+    var top = load(KEY.top, true);
+    if (top && top.items) { state.vidCache = top.items; state.vidCacheLatest = top.latest; }
     var cached = load(KEY.cache, true);
     if (cached && cached.ok) applyData(cached);
+    if (state.vids && state.vids.rows) preloadThumbs(state.vids.rows);
     refresh('summary');
   })();
 })();
