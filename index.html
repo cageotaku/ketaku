@@ -620,7 +620,7 @@ button { cursor: pointer; }
     </div>
     <div class="settings-group">
       <h3>유튜브 수익</h3>
-      <p>매일 아침 7시쯤 자동으로 새로 가져와요. 지금 바로 가져오려면 아래 버튼을 누르세요. (10분에 한 번)</p>
+      <p>매시간 자동으로 새로 가져와서, 유튜브 스튜디오에 수익이 뜨면 1시간 안에 앱에도 들어와요. 지금 바로 가져오려면 아래 버튼을 누르세요. (10분에 한 번)</p>
       <button type="button" class="secondary" id="btn-yt-refresh">유튜브 수익 지금 가져오기</button>
     </div>
     <div class="settings-group">
@@ -663,7 +663,7 @@ button { cursor: pointer; }
   /* ───────── 설정 · 저장소 ───────── */
   var CFG = window.KETAKU_CONFIG || {};
   var TZ = 'Asia/Seoul';
-  var APP_VERSION = '1.7';
+  var APP_VERSION = '1.8';
   // pin은 예전 앱이 저장하던 값(열쇠로 바꾸면 지움). token = 서버가 준 이 기기 전용 열쇠
   var KEY = { pin: 'ketaku.pin', token: 'ketaku.token', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view', vids: 'ketaku.vids', top: 'ketaku.top' };
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -998,9 +998,9 @@ button { cursor: pointer; }
     if (!latest) {
       lag = '유튜브 수익 데이터가 아직 없어요. 구글 시트 메뉴의 연결 상태를 확인해주세요.';
     } else if (V.start(key) > latest && V.start(key) <= t) {
-      lag = '유튜브 수익은 아직 집계 전이에요. 구글이 약 2일 늦게 공개해요 (' + md(latest) + '까지 반영).';
+      lag = '유튜브 수익은 아직 집계 전이에요 (' + md(latest) + '까지 반영). 유튜브 스튜디오에 뜨면 1시간 안에 들어와요.';
     } else if (end > latest && V.start(key) <= t) {
-      lag = '유튜브는 ' + md(latest) + '까지 반영됐어요. 구글이 약 2일 늦게 공개해요.';
+      lag = '유튜브는 ' + md(latest) + '까지 반영됐어요. 유튜브 스튜디오에 새 날짜가 뜨면 1시간 안에 들어와요.';
     }
     if (state.settings.toonMode === 'net') lag += (lag ? ' ' : '') + '투네이션은 수수료 ' + (Number(state.settings.fee) || 0) + '%를 뺀 금액이에요.';
     $('lag').textContent = lag;
@@ -1411,8 +1411,10 @@ button { cursor: pointer; }
     });
     $('yt-all-total').textContent = won(total);
     setUsd($('yt-all-usd'), total > 0 && usdOk ? usd : null);
-    $('yt-all-ad').textContent = plain(Math.min(ad, total));
-    $('yt-all-other').textContent = plain(Math.max(0, total - ad));
+    // 금액은 유튜브가 준 원래 값(소수점 포함)이라, 보이는 숫자끼리 딱 맞게 합계·광고를 먼저 원 단위로 맞춘 뒤 뺌
+    var totalW = Math.round(total), adW = Math.min(Math.round(ad), totalW);
+    $('yt-all-ad').textContent = plain(adW);
+    $('yt-all-other').textContent = plain(Math.max(0, totalW - adW));
     var latest = idx.ytLatest;
     $('yt-all-note').textContent = firstRev
       ? dotDate(firstRev) + ' 첫 수익부터 ' + (latest ? dotDate(latest) + '까지 반영된' : '지금까지의') + ' 예상 수익이에요. 광고 외는 슈퍼챗·멤버십·프리미엄 등이에요.'
@@ -1878,7 +1880,7 @@ button { cursor: pointer; }
     setUsd($('vp-usd'), tr > 0 && tuOk ? tu : null);
     $('vp-views').textContent = plain(tv) + '회';
     $('vp-basis').textContent = '수익은 ' + (res.revEnd ? md(res.revEnd) + '까지' : '지금까지') + ', 조회수는 지금까지 쌓인 값이에요.' +
-      (res.at ? ' 매일 아침 새로 받아요 (마지막 ' + whenText(res.at) + ').' : '');
+      (res.at ? ' 매시간 새로 받아요 (마지막 ' + whenText(res.at) + ').' : '');
     var q = (state.vpQuery || '').trim().toLowerCase();
     var shown = !q ? all : all.filter(function (v) { return v.title.toLowerCase().indexOf(q) >= 0; });
     shown.slice(0, state.vpShown).forEach(function (v) {
