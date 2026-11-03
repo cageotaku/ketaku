@@ -250,13 +250,7 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     });
   }
 
-  /* 사진: 매물이 화면 가까이 오면 그 매물 사진을 전부 받아서 푼다. 넘길 때 기다리지 않도록 */
-  var watcher = 'IntersectionObserver' in window ? new IntersectionObserver(function (items) {
-    items.forEach(function (it) {
-      if (it.isIntersecting) { watcher.unobserve(it.target); loadGallery(it.target); }
-    });
-  }, { rootMargin: '800px' }) : null;
-
+  /* 사진: 내려 보거나 넘길 때 기다리지 않도록 처음부터 전부 받아서 푼다 */
   function photoUrl(id) {
     if (!/^[0-9a-f]{32}$/.test(id)) return Promise.reject(new Error('bad id'));
     if (photoUrls[id]) return photoUrls[id];
@@ -271,9 +265,6 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
   }
   function loadPhoto(img) {
     photoUrl(img.dataset.id).then(function (u) { img.src = u; }, function () {});
-  }
-  function loadGallery(box) {
-    Array.prototype.forEach.call(box.querySelectorAll('img'), loadPhoto);
   }
 
   /* 화면 그리기 */
@@ -376,9 +367,7 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     Array.prototype.forEach.call(document.querySelectorAll('.sort'), function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.sort === sortKey));
     });
-    Array.prototype.forEach.call(document.querySelectorAll('.gallery'), function (box) {
-      if (watcher) watcher.observe(box); else loadGallery(box);
-    });
+    Array.prototype.forEach.call(document.querySelectorAll('.thumb img'), loadPhoto);
   }
 
   function show(board) {
