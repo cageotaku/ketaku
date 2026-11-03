@@ -1,0 +1,14 @@
+{
+  "name": "스튜디오 매물",
+  "short_name": "스튜디오 매물",
+  "lang": "ko",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#edeee8",
+  "theme_color": "#edeee8",
+  "icons": [
+    { "src": "icon-192.png?v=1", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png?v=1", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png?v=1", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

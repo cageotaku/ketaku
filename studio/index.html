@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#edeee8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161812" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="스튜디오 매물">
+<meta name="format-detection" content="telephone=no">
+<meta name="robots" content="noindex">
+<title>스튜디오 매물</title>
+<link rel="manifest" href="manifest.webmanifest?v=1">
+<link rel="apple-touch-icon" href="icon-180.png?v=1">
+<link rel="icon" type="image/png" href="icon-192.png?v=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 레이아웃: 한 손으로 넘겨 보는 앱. 카드마다 사진, 가격, 거리, 연락 버튼을 먼저 보여 주고 나머지는 펼쳐서 본다. */
+:root {
+  color-scheme: light dark;
+  --bg: #edeee8; --surface: #f9f9f4; --ink: #20231c; --muted: #5d6156; --line: #d2d4c9;
+  --onair: #c4291c; --on-onair: #ffffff; --marker: #f2d34f; --marker-ink: #2a2600; --warn: #8f5400;
+  --display: "Black Han Sans", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161812; --surface: #1f221a; --ink: #ecede4; --muted: #a8ab9d; --line: #363a2e;
+    --onair: #f0665a; --on-onair: #1b0b09; --marker: #e8c93c; --marker-ink: #241f00; --warn: #e3ae57;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 15px/1.6 var(--body); word-break: keep-all; overflow-wrap: anywhere; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+button, input { font: inherit; color: inherit; }
+a { color: inherit; }
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 16px;
+  padding-top: max(16px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* 맨 위 */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
+.refresh { border: 1px solid var(--line); background: var(--surface); padding: 0 14px; min-height: 44px; font-weight: 500; font-size: 14px; cursor: pointer; }
+.refresh[disabled] { color: var(--muted); }
+.status { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.stale { margin: 6px 0 0; font-size: 14px; font-weight: 500; color: var(--warn); }
+.runNote { margin: 0 0 12px; font-size: 14px; color: var(--muted); }
+
+/* 사이트별 건수 */
+.box ul.sites { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 12px; padding: 0; list-style: none; font-size: 14px; }
+.sites b { font-weight: 500; color: var(--muted); margin-right: 3px; }
+.sites .off { color: var(--warn); font-weight: 500; }
+.naver { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--surface); border: 1px solid var(--line); padding: 6px 6px 6px 12px; font-size: 14px; color: var(--muted); }
+.naver a { flex: none; min-height: 40px; display: inline-flex; align-items: center; padding: 0 12px; border: 1px solid var(--ink); color: var(--ink); font-size: 14px; font-weight: 500; text-decoration: none; }
+
+/* 정렬 */
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.count { width: 100%; font-weight: 700; }
+.sort { border: 1px solid var(--line); background: var(--surface); padding: 0 12px; min-height: 40px; font-weight: 500; font-size: 14px; cursor: pointer; }
+.sort[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+:focus-visible { outline: 2px solid var(--onair); outline-offset: 2px; }
+
+/* 카드 */
+.list { display: grid; gap: 16px; }
+.card { display: grid; grid-template-columns: minmax(0, 44%) minmax(0, 1fr); background: var(--surface); border: 1px solid var(--line); }
+.media { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--line); }
+.gallery { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; background: #0e0f0c; min-height: 240px; max-height: 420px; flex: 1; }
+.thumb { flex: 0 0 100%; scroll-snap-align: start; border: 0; padding: 0; margin: 0; background: none; cursor: zoom-in; display: flex; align-items: center; justify-content: center; min-width: 0; }
+.thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.noPhoto { flex: 1; display: grid; place-items: center; color: #d8d9cf; padding: 24px; text-align: center; }
+.photoNote { font-size: 12px; color: var(--muted); padding: 6px 12px; border-top: 1px solid var(--line); }
+.info { padding: 14px 16px 16px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: 13px; color: var(--muted); }
+.new { background: var(--onair); color: var(--on-onair); padding: 1px 7px; font-weight: 700; font-size: 12px; letter-spacing: .04em; }
+.price { font: 400 32px/1.1 var(--display); margin: 0; font-variant-numeric: tabular-nums; }
+.price small { font: 500 14px/1 var(--body); color: var(--muted); margin-left: 4px; }
+.monthly { margin: 4px 0 0; font-weight: 500; }
+.monthly mark { background: var(--marker); color: var(--marker-ink); padding: 0 5px; font-weight: 700; }
+.monthly span { color: var(--muted); font-weight: 400; font-size: 13px; }
+.addr { margin: 0; font-weight: 700; }
+.far { margin: 0; font: 400 19px/1.3 var(--display); }
+.specs { margin: 0; color: var(--muted); font-size: 14px; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.act { flex: 1 1 calc(50% - 3px); min-height: 46px; padding: 6px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.25; background: transparent; border: 1px solid var(--ink); color: var(--ink); text-decoration: none; font-weight: 700; font-size: 15px; text-align: center; cursor: pointer; }
+.act small { font-weight: 400; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.act.primary { background: var(--onair); border-color: var(--onair); color: var(--on-onair); }
+.act.primary small { color: inherit; }
+.agency { margin: 0; font-size: 13px; color: var(--muted); }
+.request { border: 1px dashed var(--warn); padding: 10px 12px; display: grid; gap: 8px; }
+.request strong { font-size: 14px; }
+.request .sent { color: var(--warn); font-size: 13px; font-weight: 500; }
+.request p { margin: 0; font-size: 14px; }
+.copy { justify-self: start; min-height: 40px; padding: 0 12px; border: 1px solid var(--line); background: transparent; font-size: 14px; font-weight: 500; cursor: pointer; }
+.more { border-top: 1px solid var(--line); padding-top: 4px; }
+.more > summary { cursor: pointer; font-weight: 500; font-size: 14px; min-height: 40px; display: flex; align-items: center; }
+.block { margin-top: 10px; }
+.block h3 { margin: 0 0 4px; font-size: 13px; font-weight: 700; }
+.block p { margin: 0; }
+.route { display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 2px 8px; margin: 0; }
+.route dt { color: var(--muted); font-size: 13px; line-height: 1.75; }
+.route dd { margin: 0; }
+.cautions { margin: 4px 0 0; padding: 0 0 0 1.1em; color: var(--warn); font-size: 14px; }
+
+.empty { background: var(--surface); border: 1px solid var(--line); padding: 28px 20px; color: var(--muted); }
+.box { background: var(--surface); border: 1px solid var(--line); padding: 4px 14px; }
+.box > summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
+.box ul { margin: 4px 0 12px; padding-left: 1.2em; }
+.goneList { display: grid; gap: 6px; list-style: none; padding: 0 !important; color: var(--muted); }
+
+/* 처음 한 번 코드 넣는 화면 */
+.gate { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px max(16px, env(safe-area-inset-right, 0px)) 24px max(16px, env(safe-area-inset-left, 0px)); }
+.gate form { width: 100%; max-width: 360px; display: grid; gap: 12px; }
+.gate p { margin: 0; color: var(--muted); }
+.gate input { width: 100%; min-height: 50px; padding: 0 12px; background: var(--surface); border: 1px solid var(--ink); border-radius: 0; font-size: 18px; letter-spacing: .04em; }
+.gate .act { flex: none; width: 100%; }
+.gate .err { color: var(--warn); font-weight: 500; font-size: 14px; min-height: 1.6em; }
+
+#viewer { position: fixed; inset: 0; z-index: 30; background: rgba(10, 11, 8, .94); display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+#viewer img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.close { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); border: 1px solid #d8d9cf; background: #0e0f0c; color: #f0f0e8; padding: 0 16px; min-height: 44px; font-weight: 500; font-size: 14px; cursor: pointer; }
+
+@media (max-width: 760px) {
+  .card { grid-template-columns: minmax(0, 1fr); }
+  .media { border-right: 0; border-bottom: 1px solid var(--line); }
+  .gallery { flex: none; height: 62vw; min-height: 200px; max-height: 340px; }
+}
+@media (prefers-reduced-motion: no-preference) { .gallery { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate" hidden>
+  <form id="gateForm">
+    <h1>스튜디오 매물</h1>
+    <p>처음 한 번만 앱 코드를 넣어 주세요. 그다음부터는 바로 열립니다.</p>
+    <input id="gateInput" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" aria-label="앱 코드" placeholder="앱 코드">
+    <p class="err" id="gateErr" role="alert"></p>
+    <button class="act primary" type="submit" id="gateBtn">열기</button>
+  </form>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <header>
+    <div class="top">
+      <h1>스튜디오 매물</h1>
+      <button class="refresh" id="refresh" type="button">새로고침</button>
+    </div>
+    <p class="status" id="status"></p>
+    <p class="stale" id="stale" hidden></p>
+  </header>
+
+  <div class="naver" id="naver" hidden>
+    <span>네이버부동산은 직접 확인해야 해요</span>
+    <a href="https://m.land.naver.com/" target="_blank" rel="noopener">열기</a>
+  </div>
+
+  <section class="toolbar" aria-label="정렬">
+    <span class="count" id="count"></span>
+    <button class="sort" data-sort="near" aria-pressed="true" type="button">가까운 순</button>
+    <button class="sort" data-sort="cheap" aria-pressed="false" type="button">월 비용 낮은 순</button>
+    <button class="sort" data-sort="wide" aria-pressed="false" type="button">넓은 순</button>
+  </section>
+
+  <main class="list" id="list"></main>
+
+  <details class="box" id="goneBox" hidden>
+    <summary id="goneTitle">내려간 매물</summary>
+    <ul class="goneList" id="goneList"></ul>
+  </details>
+
+  <details class="box">
+    <summary>사이트별 찾기 결과</summary>
+    <ul class="sites" id="sites"></ul>
+    <p class="runNote" id="runNote" hidden></p>
+    <p class="runNote" id="cond" hidden></p>
+  </details>
+
+  <details class="box">
+    <summary>계약 전에 꼭 물어볼 것</summary>
+    <ul>
+      <li>방송 촬영과 팟캐스트 녹화 용도로 써도 되는지, 게스트 출입이 괜찮은지</li>
+      <li>건축물 용도가 주택일 때 사업장 주소로 등록할 수 있는지</li>
+      <li>최근 몇 년 사이 침수나 누수가 있었는지, 곰팡이가 있는지</li>
+      <li>인터넷 회선을 새로 넣을 수 있는지, 조명과 장비를 켜도 전기 용량이 충분한지</li>
+      <li>윗집과 옆집에 소리가 얼마나 들리는지, 벽에 흡음재를 붙여도 되는지</li>
+      <li>관리비가 '확인 필요'인 매물은 관리비를 더해도 조건 안인지</li>
+      <li>건축물대장에 위반건축물 표시가 없는지, 등기부등본에 근저당이 있는지</li>
+    </ul>
+  </details>
+</div>
+
+<div id="viewer" hidden>
+  <button class="close" id="closeViewer" type="button">닫기</button>
+  <img id="viewerImg" alt="매물 사진 크게 보기">
+</div>
+
+<script>
+(function () {
+  var SALT = 'ketaku-studio-v1', ROUNDS = 200000, STALE_HOURS = 13, RECHECK_MS = 5 * 60 * 1000;
+  var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+  var el = function (id) { return document.getElementById(id); };
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del: function (k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+  var esc = function (v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  var safeUrl = function (u) { return /^https:\/\//.test(u || '') ? u : ''; };
+  var num = function (v, d) { return typeof v === 'number' ? v : d; };
+  var total = function (l) { return num(l.monthlyTotal, num(l.rent, 0) + num(l.mgmt, 0)); };
+  var cleanCode = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+  var digits = function (p) { return String(p || '').replace(/\D/g, ''); };
+  var isMobile = function (p) { return /^(01|050)/.test(digits(p)); };
+  var smsHref = function (p, body) { return 'sms:' + digits(p) + (IOS ? '&' : '?') + 'body=' + encodeURIComponent(body); };
+
+  var aesKey = null, listings = [], meta = null, sortKey = store.get('studioSort') || 'near';
+  var lastFetch = 0, loading = false, photoUrls = {};
+  var asked = {};
+  try { asked = JSON.parse(store.get('studioAsked') || '{}') || {}; } catch (e) { asked = {}; }
+
+  /* 암호 풀기 */
+  function deriveKey(code) {
+    var enc = new TextEncoder();
+    return crypto.subtle.importKey('raw', enc.encode(code), 'PBKDF2', false, ['deriveKey']).then(function (base) {
+      return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(SALT), iterations: ROUNDS },
+        base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    });
+  }
+  function open(buf) {
+    return crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(buf, 0, 12) }, aesKey, new Uint8Array(buf, 12));
+  }
+  function fetchBoard() {
+    return fetch('data/board.bin?t=' + Date.now(), { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.arrayBuffer();
+    });
+  }
+
+  /* 사진: 매물이 화면 가까이 오면 그 매물 사진을 전부 받아서 푼다. 넘길 때 기다리지 않도록 */
+  var watcher = 'IntersectionObserver' in window ? new IntersectionObserver(function (items) {
+    items.forEach(function (it) {
+      if (it.isIntersecting) { watcher.unobserve(it.target); loadGallery(it.target); }
+    });
+  }, { rootMargin: '800px' }) : null;
+
+  function photoUrl(id) {
+    if (!/^[0-9a-f]{32}$/.test(id)) return Promise.reject(new Error('bad id'));
+    if (photoUrls[id]) return photoUrls[id];
+    photoUrls[id] = fetch('data/p/' + id + '.bin').then(function (r) {
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.arrayBuffer();
+    }).then(open).then(function (plain) {
+      return URL.createObjectURL(new Blob([plain], { type: 'image/jpeg' }));
+    });
+    photoUrls[id].catch(function () { delete photoUrls[id]; });
+    return photoUrls[id];
+  }
+  function loadPhoto(img) {
+    photoUrl(img.dataset.id).then(function (u) { img.src = u; }, function () {});
+  }
+  function loadGallery(box) {
+    Array.prototype.forEach.call(box.querySelectorAll('img'), loadPhoto);
+  }
+
+  /* 화면 그리기 */
+  function renderHead() {
+    var sites = (meta && meta.sites) || [];
+    el('sites').innerHTML = sites.map(function (s) {
+      var off = s.state !== 'ok';
+      return '<li><b>' + esc(s.name) + '</b>' + (off ? '<span class="off">' + esc(s.stateLabel || '조회 못 함') + '</span>' : esc(s.count) + '건') + '</li>';
+    }).join('');
+    el('naver').hidden = !sites.some(function (s) { return /네이버/.test(s.name) && s.state !== 'ok'; });
+    el('status').textContent = meta ? '마지막 확인 ' + (meta.lastRunLabel || '') : '';
+    el('runNote').hidden = !(meta && meta.note);
+    el('runNote').textContent = (meta && meta.note) || '';
+    el('cond').hidden = !(meta && meta.conditions);
+    el('cond').textContent = (meta && meta.conditions) || '';
+    var ran = meta && meta.lastRunAt ? new Date(meta.lastRunAt).getTime() : 0;
+    var late = ran && (Date.now() - ran) > STALE_HOURS * 3600 * 1000;
+    el('stale').hidden = !late;
+    el('stale').textContent = late ? '예정된 찾기가 지나갔어요. 노트북이 꺼져 있었을 수 있어요.' : '';
+  }
+
+  function dateLabel(iso) {
+    var m = /^\d{4}-(\d{2})-(\d{2})/.exec(iso || '');
+    return m ? Number(m[1]) + '월 ' + Number(m[2]) + '일' : '';
+  }
+
+  function card(l) {
+    var photos = Array.isArray(l.photos) ? l.photos : [];
+    var gallery = photos.length
+      ? photos.map(function (id, i) {
+          return '<button class="thumb" type="button" data-photo="' + esc(id) + '" aria-label="사진 ' + (i + 1) + ' 크게 보기"><img alt="매물 사진 ' + (i + 1) + '" data-id="' + esc(id) + '"></button>';
+        }).join('')
+      : '<div class="noPhoto">올라온 사진이 없습니다</div>';
+    var isNew = meta && l.firstRunId && l.firstRunId === meta.runId;
+    var c = l.commute || {};
+    var route = '<dl class="route">' +
+      '<dt>대표</dt><dd>' + esc(c.main) + '</dd>' +
+      (c.alt ? '<dt>다른 길</dt><dd>' + esc(c.alt) + '</dd>' : '') +
+      (c.car ? '<dt>자동차</dt><dd>' + esc(c.car) + '</dd>' : '') + '</dl>';
+    var cautionList = Array.isArray(l.cautions) ? l.cautions : [];
+    var cautions = cautionList.length
+      ? '<ul class="cautions">' + cautionList.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' : '';
+
+    var phones = [l.phone, l.phone2].filter(Boolean);
+    var mobile = phones.filter(isMobile)[0];
+    var pending = l.photoRequest && l.photoRequest.status !== 'none' && l.photoRequest.message;
+    var req = '';
+    if (pending) {
+      var sentOn = asked[l.id];
+      req = '<div class="request"><strong>사진 문의</strong>' +
+        (sentOn ? '<span class="sent">' + esc(dateLabel(sentOn)) + '에 문자 창을 열었어요</span>' : '') +
+        '<p>' + esc(l.photoRequest.message) + '</p>' +
+        (mobile
+          ? '<a class="act primary" data-ask="' + esc(l.id) + '" href="' + esc(smsHref(mobile, l.photoRequest.message)) + '">사진 문의 문자 쓰기<small>' + esc(mobile) + '</small></a>'
+          : '') +
+        '<button class="copy" type="button" data-copy="' + esc(l.photoRequest.message) + '">문구 복사</button></div>';
+    }
+    var hello = '안녕하세요. ' + (l.source || '') + '에서 ' + (l.address || '') + ' 월세 ' + (l.deposit == null ? '' : l.deposit) + '/' + (l.rent == null ? '' : l.rent) + ' 매물 보고 연락드립니다. 아직 계약 가능한가요?';
+    var acts = phones.map(function (p) {
+      return '<a class="act" href="tel:' + esc(digits(p)) + '">전화<small>' + esc(p) + '</small></a>';
+    });
+    if (mobile && !pending) acts.push('<a class="act" href="' + esc(smsHref(mobile, hello)) + '">문자<small>' + esc(mobile) + '</small></a>');
+    var url = safeUrl(l.url);
+    if (url) acts.push('<a class="act" href="' + esc(url) + '" target="_blank" rel="noopener">원문 보기<small>' + esc(l.source) + '</small></a>');
+
+    return '<article class="card"><div class="media"><div class="gallery">' + gallery + '</div>' +
+      '<div class="photoNote">' + (photos.length ? '옆으로 넘기기 · 눌러서 크게 보기' + (l.photoNote ? ' · ' + esc(l.photoNote) : '') : esc(l.photoNote || '')) + '</div></div>' +
+      '<div class="info"><div class="meta">' + (isNew ? '<span class="new">NEW</span>' : '') +
+      '<span>' + esc(l.source) + '</span><span>' + esc(l.postedLabel) + '</span></div>' +
+      '<div><p class="price">' + esc(l.deposit) + ' / ' + esc(l.rent) + '<small>만 원</small></p>' +
+      '<p class="monthly">한 달 <mark>' + esc(total(l)) + '만 원</mark> <span>' + esc(l.mgmtLabel) + '</span></p></div>' +
+      '<p class="addr">' + esc(l.address) + '</p>' +
+      '<p class="far">집에서 ' + esc(c.headline) + '</p>' +
+      '<p class="specs">' + esc(l.specs) + '</p>' + req +
+      '<p class="agency">' + esc(l.agency) + '</p>' +
+      '<div class="actions">' + acts.join('') + '</div>' +
+      '<details class="more"><summary>가는 길과 요약' + (cautionList.length ? ' · 주의 ' + cautionList.length + '건' : '') + '</summary>' +
+      '<div class="block"><h3>집에서 가는 길</h3>' + route + '</div>' +
+      '<div class="block"><h3>요약</h3><p>' + esc(l.summary) + '</p>' + cautions + '</div></details>' +
+      '</div></article>';
+  }
+
+  function render() {
+    var active = listings.filter(function (l) { return l.status !== 'gone'; });
+    var gone = listings.filter(function (l) { return l.status === 'gone'; });
+    var by = {
+      near: function (a, b) { return num(a.commuteMin, 999) - num(b.commuteMin, 999); },
+      cheap: function (a, b) { return total(a) - total(b) || num(a.commuteMin, 999) - num(b.commuteMin, 999); },
+      wide: function (a, b) { return num(b.areaM2, 0) - num(a.areaM2, 0); }
+    }[sortKey] || function () { return 0; };
+    active.sort(by);
+    el('count').textContent = '조건에 맞는 매물 ' + active.length + '건';
+    el('list').innerHTML = active.length ? active.map(card).join('')
+      : '<div class="empty">지금은 조건에 맞는 매물이 없습니다. 아침 9시와 저녁 9시에 다시 찾아 올립니다.</div>';
+    el('goneBox').hidden = !gone.length;
+    el('goneTitle').textContent = '내려간 매물 ' + gone.length + '건';
+    el('goneList').innerHTML = gone.map(function (l) {
+      return '<li>' + esc(l.address) + ' · ' + esc(l.deposit) + '/' + esc(l.rent) + ' · ' + esc(l.source) + '</li>';
+    }).join('');
+    Array.prototype.forEach.call(document.querySelectorAll('.sort'), function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.sort === sortKey));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.gallery'), function (box) {
+      if (watcher) watcher.observe(box); else loadGallery(box);
+    });
+  }
+
+  function show(board) {
+    meta = board.meta || null;
+    listings = Array.isArray(board.listings) ? board.listings : [];
+    renderHead();
+    render();
+  }
+
+  /* 데이터 받기 */
+  function refresh(byHand) {
+    if (loading || !aesKey) return Promise.resolve();
+    loading = true;
+    var btn = el('refresh');
+    if (byHand) { btn.disabled = true; btn.textContent = '확인 중'; }
+    return fetchBoard().then(open).then(function (plain) {
+      var text = new TextDecoder().decode(plain);
+      var board = JSON.parse(text);
+      store.set('studioBoard', text);
+      lastFetch = Date.now();
+      show(board);
+      if (byHand) { btn.textContent = '최신이에요'; setTimeout(function () { btn.textContent = '새로고침'; }, 1500); }
+    }).catch(function () {
+      if (!meta) el('status').textContent = '매물을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침을 눌러 주세요.';
+      if (byHand) { btn.textContent = '연결 안 됨'; setTimeout(function () { btn.textContent = '새로고침'; }, 1800); }
+    }).then(function () { loading = false; btn.disabled = false; });
+  }
+
+  function start() {
+    el('gate').hidden = true;
+    el('app').hidden = false;
+    var saved = store.get('studioBoard');
+    if (saved) { try { show(JSON.parse(saved)); } catch (e) { store.del('studioBoard'); } }
+    else { el('status').textContent = '매물을 불러오는 중이에요.'; }
+    refresh(false);
+  }
+
+  /* 코드 확인: 실제로 데이터가 풀려야 저장한다 */
+  function tryCode(code) {
+    return deriveKey(code).then(function (k) {
+      return fetchBoard().then(function (buf) {
+        aesKey = k;
+        return open(buf).then(function (plain) {
+          store.set('studioCode', code);
+          store.set('studioBoard', new TextDecoder().decode(plain));
+          return true;
+        }, function (err) { aesKey = null; err.wrongCode = true; throw err; });
+      });
+    });
+  }
+  function showGate(msg) {
+    el('app').hidden = true;
+    el('gate').hidden = false;
+    el('gateErr').textContent = msg || '';
+  }
+
+  el('gateForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var code = cleanCode(el('gateInput').value);
+    if (!code) { el('gateErr').textContent = '앱 코드를 넣어 주세요.'; return; }
+    el('gateBtn').disabled = true;
+    el('gateErr').textContent = '';
+    tryCode(code).then(start, function (err) {
+      el('gateErr').textContent = err && err.wrongCode ? '코드가 맞지 않아요. 다시 확인해 주세요.' : '연결이 안 돼요. 인터넷을 확인하고 다시 눌러 주세요.';
+    }).then(function () { el('gateBtn').disabled = false; });
+  });
+
+  /* 누르기 */
+  document.addEventListener('click', function (e) {
+    var s = e.target.closest('.sort');
+    if (s) { sortKey = s.dataset.sort; store.set('studioSort', sortKey); render(); return; }
+    if (e.target.closest('#refresh')) { refresh(true); return; }
+    var a = e.target.closest('[data-ask]');
+    if (a) {
+      var now = new Date();
+      asked[a.dataset.ask] = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      store.set('studioAsked', JSON.stringify(asked));
+      setTimeout(render, 400);
+      return;
+    }
+    var c = e.target.closest('.copy');
+    if (c) {
+      var text = c.dataset.copy, label = c.textContent;
+      var done = function (m) { c.textContent = m; setTimeout(function () { c.textContent = label; }, 1400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done('복사됨'); }, function () { done('직접 선택해 주세요'); });
+      } else { done('직접 선택해 주세요'); }
+      return;
+    }
+    var t = e.target.closest('.thumb');
+    if (t) {
+      el('viewer').hidden = false;
+      el('closeViewer').focus();
+      photoUrl(t.dataset.photo).then(function (u) { if (!el('viewer').hidden) el('viewerImg').src = u; }, function () {});
+      return;
+    }
+    if (e.target.id === 'viewer' || e.target.id === 'closeViewer') { el('viewer').hidden = true; el('viewerImg').removeAttribute('src'); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !el('viewer').hidden) { el('viewer').hidden = true; el('viewerImg').removeAttribute('src'); }
+  });
+  /* 앱으로 돌아올 때 새 결과 확인 */
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && aesKey && Date.now() - lastFetch > RECHECK_MS) refresh(false);
+  });
+
+  /* 시작: 주소에 코드가 있으면 쓰고, 저장된 코드가 있으면 바로 연다 */
+  var fromLink = cleanCode(location.hash.slice(1));
+  var savedCode = cleanCode(store.get('studioCode'));
+  if (savedCode) {
+    deriveKey(savedCode).then(function (k) { aesKey = k; start(); }, function () { showGate(); });
+  } else if (fromLink) {
+    tryCode(fromLink).then(start, function (err) {
+      showGate(err && err.wrongCode ? '코드가 맞지 않아요. 다시 확인해 주세요.' : '연결이 안 돼요. 인터넷을 확인하고 다시 열어 주세요.');
+      if (!(err && err.wrongCode)) el('gateInput').value = fromLink;
+    });
+  } else {
+    showGate();
+  }
+})();
+</script>
+</body>
+</html>
