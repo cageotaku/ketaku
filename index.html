@@ -620,8 +620,12 @@ button { cursor: pointer; }
     </div>
     <div class="settings-group">
       <h3>유튜브 수익</h3>
-      <p>매시간 자동으로 새로 가져와서, 유튜브 스튜디오에 수익이 뜨면 1시간 안에 앱에도 들어와요. 지금 바로 가져오려면 아래 버튼을 누르세요. (10분에 한 번)</p>
+      <p>5분마다 유튜브에 새 날짜가 공개됐는지 확인해서, 공개되면 바로 가져와요. 유튜브가 앱에 수익을 공개하는 시각은 스튜디오 화면보다 늦을 때가 있어요. 지금 바로 가져오려면 아래 버튼을 누르세요. (10분에 한 번)</p>
       <button type="button" class="secondary" id="btn-yt-refresh">유튜브 수익 지금 가져오기</button>
+    </div>
+    <div class="settings-group" id="toon-rec-group">
+      <h3>투네이션 기록</h3>
+      <p>라이브 방송이 끝나면 1분 안에 기록해요. 방송 중에도 1분마다 새 후원을 가져오고, 방송 밖에서 들어온 후원은 매시간 확인해요. 앱을 켜 두면 방송 중엔 1분마다 화면도 새로 받아요.</p>
     </div>
     <div class="settings-group">
       <h3>연결 정보</h3>
@@ -663,7 +667,7 @@ button { cursor: pointer; }
   /* ───────── 설정 · 저장소 ───────── */
   var CFG = window.KETAKU_CONFIG || {};
   var TZ = 'Asia/Seoul';
-  var APP_VERSION = '1.8';
+  var APP_VERSION = '1.9';
   // pin은 예전 앱이 저장하던 값(열쇠로 바꾸면 지움). token = 서버가 준 이 기기 전용 열쇠
   var KEY = { pin: 'ketaku.pin', token: 'ketaku.token', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view', vids: 'ketaku.vids', top: 'ketaku.top' };
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -900,11 +904,23 @@ button { cursor: pointer; }
     return (day === t ? '' : day === addDays(t, -1) ? '어제 ' : md(day) + ' ') + stamp.slice(11, 16);
   }
 
+  // 'yyyy-MM-dd HH:mm'(한국 시간) → ms
+  function stampMs(s) {
+    var m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
+    return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] - 9, +m[5]) : 0;
+  }
   function renderStatus() {
-    var d = state.data, line;
-    var toon = !state.demo && d.toonAuto && d.toonSeen;
+    var d = state.data, line, live = d.live || {};
+    var toonAt = d.toonAt || d.toonSeen, ytAt = d.ytCheckedAt || d.updatedAt;
+    var toon = !state.demo && d.toonAuto && toonAt;
+    var ytPart = '유튜브 ' + (ytAt ? shortWhen(ytAt) : '—');
+    // 방송이 끝난 지 3시간 안이고 그 뒤에 투네이션을 읽었으면 '기록됨'으로 알려 줌
+    var justEnded = !live.on && live.end && toonAt && toonAt >= live.end &&
+      stampMs(d.serverTime) - stampMs(live.end) < 3 * 3600 * 1000;
     if (state.demo) line = '예시 데이터예요';
-    else if (toon) line = '업데이트 · 유튜브 ' + (d.updatedAt ? shortWhen(d.updatedAt) : '—') + ' · 투네이션 ' + shortWhen(d.toonSeen);
+    else if (toon && live.on) line = '라이브 중 · 투네이션 ' + shortWhen(toonAt) + ' · ' + ytPart;
+    else if (toon && justEnded) line = '방송 끝 ' + shortWhen(live.end) + ' · 투네이션 기록됨 · ' + ytPart;
+    else if (toon) line = '업데이트 · ' + ytPart + ' · 투네이션 ' + shortWhen(toonAt);
     else if (d.updatedAt) line = whenText(d.updatedAt) + ' 업데이트';
     else line = '아직 업데이트 기록이 없어요';
     $('status-line').textContent = line;
@@ -998,9 +1014,9 @@ button { cursor: pointer; }
     if (!latest) {
       lag = '유튜브 수익 데이터가 아직 없어요. 구글 시트 메뉴의 연결 상태를 확인해주세요.';
     } else if (V.start(key) > latest && V.start(key) <= t) {
-      lag = '유튜브 수익은 아직 집계 전이에요 (' + md(latest) + '까지 반영). 유튜브 스튜디오에 뜨면 1시간 안에 들어와요.';
+      lag = '유튜브 수익은 아직 집계 전이에요 (' + md(latest) + '까지 반영). 유튜브가 새 날짜를 공개하면 5분 안에 들어와요(스튜디오 화면보다 늦을 수 있어요).';
     } else if (end > latest && V.start(key) <= t) {
-      lag = '유튜브는 ' + md(latest) + '까지 반영됐어요. 유튜브 스튜디오에 새 날짜가 뜨면 1시간 안에 들어와요.';
+      lag = '유튜브는 ' + md(latest) + '까지 반영됐어요. 유튜브가 새 날짜를 공개하면 5분 안에 들어와요(스튜디오 화면보다 늦을 수 있어요).';
     }
     if (state.settings.toonMode === 'net') lag += (lag ? ' ' : '') + '투네이션은 수수료 ' + (Number(state.settings.fee) || 0) + '%를 뺀 금액이에요.';
     $('lag').textContent = lag;
@@ -1749,6 +1765,13 @@ button { cursor: pointer; }
     if (Date.now() - state.lastFetch > 60 * 1000) refresh('summary');
     else if (Date.now() - state.vidsFetch > 5 * 60 * 1000) loadVids(false);
   });
+  // 앱을 켜 두면 알아서 새로 받음: 라이브 중엔 1분마다(투네이션), 아니면 5분마다(서버가 5분마다 확인하므로)
+  setInterval(function () {
+    if (document.visibilityState !== 'visible' || $('main').hidden || state.demo || state.busy || !state.data) return;
+    if (document.querySelector('.sheet:not([hidden])')) return;   // 설정·입력 창을 보는 중엔 건드리지 않음
+    var every = state.data.live && state.data.live.on ? 60 * 1000 : 5 * 60 * 1000;
+    if (Date.now() - state.lastFetch >= every) refresh('summary');
+  }, 15 * 1000);
   var resizeTimer;
   window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
 
@@ -2053,10 +2076,14 @@ button { cursor: pointer; }
     $('fee').value = state.settings.fee ? String(state.settings.fee) : '';
     var d = state.data || {}, info = $('info');
     info.textContent = '';
+    var toonAt = d.toonAt || d.toonSeen, live = d.live || {};
+    $('toon-rec-group').hidden = !state.demo && !d.toonAuto;
     [['채널', d.channel || (state.demo ? '예시' : '—')],
      ['마지막 업데이트', d.updatedAt || '—'],
      ['유튜브 최신 반영일', d.ytLatest || '—'],
-     ['투네이션 자동 기록', state.demo ? '예시' : d.toonAuto ? (d.toonSeen ? '켜짐 · ' + d.toonSeen + ' 확인' : '켜짐 · 첫 확인 대기') : '꺼짐'],
+     ['유튜브 마지막 확인', d.ytCheckedAt || d.updatedAt || '—'],
+     ['투네이션 자동 기록', state.demo ? '예시' : d.toonAuto ? (toonAt ? '켜짐 · ' + toonAt + ' 확인' : '켜짐 · 첫 확인 대기') : '꺼짐'],
+     ['라이브 방송', state.demo ? '예시' : live.on ? '방송 중 · 끝나면 1분 안에 기록' : live.end ? '마지막 방송 ' + shortWhen(live.end) + ' 종료' : '—'],
      ['서버 버전', d.version || '—']].forEach(function (r) {
       var dt = document.createElement('dt'); dt.textContent = r[0];
       var dd = document.createElement('dd'); dd.textContent = r[1];
