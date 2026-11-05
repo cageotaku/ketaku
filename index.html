@@ -355,14 +355,28 @@ button { cursor: pointer; }
 .sheet { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; }
 .sheet-backdrop { position: absolute; inset: 0; background: var(--scrim); opacity: 0; transition: opacity 0.25s; }
 .sheet-panel {
-  position: relative; width: 100%; max-width: 560px; max-height: 92vh; overflow: auto;
+  position: relative; width: 100%; max-width: 560px;
+  /* 위쪽에 눌러서 닫을 수 있는 빈 곳을 남김 (상태 표시줄 아래로 56px) */
+  max-height: calc(100% - var(--safe-t) - 56px); overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   background: var(--raised); border-radius: 18px 18px 0 0;
-  padding: 8px var(--pad) calc(20px + var(--safe-b));
+  padding: 0 var(--pad) calc(20px + var(--safe-b));
   transform: translateY(100%); transition: transform 0.28s cubic-bezier(.2,.8,.2,1);
 }
 .sheet.open .sheet-backdrop { opacity: 1; }
 .sheet.open .sheet-panel { transform: none; }
-.grabber { width: 38px; height: 5px; border-radius: 3px; background: var(--hair); margin: 0 auto 14px; }
+/* 맨 위 줄: 끌어내리는 손잡이 + 닫기(X) — 아래로 스크롤해도 늘 보임 */
+.sheet-top {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: center;
+  margin: 0 calc(-1 * var(--pad)) 4px; padding: 0 var(--pad); height: 44px;
+  background: var(--raised); touch-action: none; cursor: grab;
+}
+.grabber { width: 38px; height: 5px; border-radius: 3px; background: var(--hair); margin: 0; }
+.sheet-x {
+  position: absolute; right: calc(var(--pad) - 8px); top: 4px; width: 36px; height: 36px; padding: 0;
+  border: 0; border-radius: 18px; background: var(--press); color: var(--ink-2); display: grid; place-items: center;
+}
+.sheet-x:active { background: var(--hair); }
+.sheet-x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
 .sheet h2 { font-size: 20px; font-weight: 800; margin: 0 0 18px; letter-spacing: -0.01em; }
 .amount-wrap { position: relative; }
 .amount-wrap input { font-size: 28px !important; font-weight: 800; padding-right: 44px !important; letter-spacing: -0.01em; }
@@ -579,7 +593,7 @@ button { cursor: pointer; }
 <div id="sheet-add" class="sheet" role="dialog" aria-modal="true" aria-labelledby="add-title" hidden>
   <div class="sheet-backdrop" data-close></div>
   <form class="sheet-panel" id="add-form" novalidate>
-    <div class="grabber"></div>
+    <div class="sheet-top"><div class="grabber"></div><button type="button" class="sheet-x" data-close aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <h2 id="add-title">투네이션 후원 기록</h2>
     <label class="field">금액
       <span class="amount-wrap"><input id="add-amount" inputmode="numeric" autocomplete="off" placeholder="0"><span>원</span></span>
@@ -605,7 +619,7 @@ button { cursor: pointer; }
 <div id="sheet-settings" class="sheet" role="dialog" aria-modal="true" aria-labelledby="set-title" hidden>
   <div class="sheet-backdrop" data-close></div>
   <div class="sheet-panel">
-    <div class="grabber"></div>
+    <div class="sheet-top"><div class="grabber"></div><button type="button" class="sheet-x" data-close aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <h2 id="set-title">설정</h2>
     <div class="settings-group" style="border-top:0;padding-top:0">
       <h3>투네이션 금액 기준</h3>
@@ -642,7 +656,7 @@ button { cursor: pointer; }
 <div id="sheet-donor" class="sheet" role="dialog" aria-modal="true" aria-labelledby="donor-title" hidden>
   <div class="sheet-backdrop" data-close></div>
   <div class="sheet-panel">
-    <div class="grabber"></div>
+    <div class="sheet-top"><div class="grabber"></div><button type="button" class="sheet-x" data-close aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <h2 id="donor-title">—</h2>
     <p id="donor-aka" class="aka" hidden></p>
     <div class="donor-stats">
@@ -667,7 +681,7 @@ button { cursor: pointer; }
   /* ───────── 설정 · 저장소 ───────── */
   var CFG = window.KETAKU_CONFIG || {};
   var TZ = 'Asia/Seoul';
-  var APP_VERSION = '1.9';
+  var APP_VERSION = '2.0';
   // pin은 예전 앱이 저장하던 값(열쇠로 바꾸면 지움). token = 서버가 준 이 기기 전용 열쇠
   var KEY = { pin: 'ketaku.pin', token: 'ketaku.token', url: 'ketaku.url', cache: 'ketaku.cache', settings: 'ketaku.settings', view: 'ketaku.view', vids: 'ketaku.vids', top: 'ketaku.top' };
   var DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -1971,8 +1985,9 @@ button { cursor: pointer; }
 
   /* ───────── 시트(아래에서 올라오는 창) ───────── */
   function openSheet(id) {
-    var sh = $(id);
+    var sh = $(id), panel = sh.querySelector('.sheet-panel');
     sh.hidden = false;
+    if (panel) { panel.scrollTop = 0; panel.style.transform = ''; }   // 열 때마다 맨 위부터
     requestAnimationFrame(function () { requestAnimationFrame(function () { sh.classList.add('open'); }); });
   }
   function closeSheet(id) {
@@ -1985,7 +2000,45 @@ button { cursor: pointer; }
       if (e.target.closest('[data-close]')) closeSheet(sh.id);
     });
     sh.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(sh.id); });
+    swipeToClose(sh);
   });
+  // 아래로 쓸어내려 닫기: 맨 위 줄은 언제든, 내용은 맨 위까지 올라가 있을 때 아래로 끌면 따라 내려오고
+  // 충분히(4분의 1 또는 140px) 내리거나 빠르게 튕기면 닫힘. 덜 내리면 제자리로
+  function swipeToClose(sh) {
+    var panel = sh.querySelector('.sheet-panel');
+    var startY = 0, startT = 0, dy = 0, armed = false, dragging = false;
+    panel.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1 || e.target.closest('input, textarea, select')) { armed = false; return; }
+      armed = !!e.target.closest('.sheet-top') || panel.scrollTop <= 0;
+      startY = e.touches[0].clientY; startT = Date.now(); dy = 0; dragging = false;
+    }, { passive: true });
+    panel.addEventListener('touchmove', function (e) {
+      if (!armed) return;
+      var d = e.touches[0].clientY - startY;
+      if (!dragging) {
+        if (d > 6) { dragging = true; panel.style.transition = 'none'; }
+        else { if (d < -6) armed = false; return; }   // 위로 밀면 평소처럼 스크롤
+      }
+      dy = Math.max(0, d);
+      panel.style.transform = 'translateY(' + dy + 'px)';
+      e.preventDefault();
+    }, { passive: false });
+    function end() {
+      if (!dragging) return;
+      dragging = false; armed = false;
+      panel.style.transition = '';
+      var flick = dy > 40 && Date.now() - startT < 250;
+      if (dy > Math.min(140, panel.offsetHeight / 4) || flick) {
+        panel.style.transform = 'translateY(100%)';
+        closeSheet(sh.id);
+        setTimeout(function () { panel.style.transform = ''; }, 300);
+      } else {
+        panel.style.transform = '';
+      }
+    }
+    panel.addEventListener('touchend', end);
+    panel.addEventListener('touchcancel', end);
+  }
 
   // 투네이션 기록
   function setDate(offset) {
