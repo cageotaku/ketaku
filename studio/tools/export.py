@@ -99,11 +99,19 @@ def main():
         meta["conditions"] = args.conditions
     board = json.dumps({"meta": meta, "listings": listings}, ensure_ascii=False).encode("utf-8")
     target = out / "board.bin"
-    target.write_bytes(seal(key, board))
+    # 내용이 그대로면 다시 쓰지 않는다. 다시 쓰면 암호문이 매번 달라져 바뀐 것 없이 커밋이 생긴다.
+    try:
+        same = target.exists() and unseal(key, target.read_bytes()) == board
+    except Exception:
+        same = False
+    if not same:
+        target.write_bytes(seal(key, board))
 
     if json.loads(unseal(key, target.read_bytes()))["meta"].get("runId") != meta.get("runId"):
         sys.exit("암호화 확인 실패")
     print(f"매물 {len(listings)}건, 사진 {len(wanted)}장 (새로 {added}, 삭제 {removed}, 없음 {len(missing)})")
+    if same and not added and not removed:
+        print("변경 없음")
     for pid in missing:
         print(f"사진 없음: {pid}")
 
