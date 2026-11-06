@@ -205,7 +205,8 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
 
 <script>
 (function () {
-  var SALT = 'ketaku-studio-v1', ROUNDS = 200000, STALE_HOURS = 13, RECHECK_MS = 5 * 60 * 1000;
+  /* 매물 찾기는 오전 10시 30분과 오후 5시 30분. 가장 긴 간격(오후 → 다음 날 오전) 17시간에 여유 2시간을 더한 19시간이 지나면 늦었다고 알린다 */
+  var SALT = 'ketaku-studio-v1', ROUNDS = 200000, STALE_HOURS = 19, RECHECK_MS = 5 * 60 * 1000;
   var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
   var el = function (id) { return document.getElementById(id); };
@@ -358,7 +359,7 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     active.sort(by);
     el('count').textContent = '조건에 맞는 매물 ' + active.length + '건';
     el('list').innerHTML = active.length ? active.map(card).join('')
-      : '<div class="empty">지금은 조건에 맞는 매물이 없습니다. 아침 9시와 저녁 9시에 다시 찾아 올립니다.</div>';
+      : '<div class="empty">지금은 조건에 맞는 매물이 없습니다. 오전 10시 30분과 오후 5시 30분에 다시 찾아 올립니다.</div>';
     el('goneBox').hidden = !gone.length;
     el('goneTitle').textContent = '내려간 매물 ' + gone.length + '건';
     el('goneList').innerHTML = gone.map(function (l) {
