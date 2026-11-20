@@ -165,7 +165,8 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
 
   <section class="toolbar" aria-label="정렬">
     <span class="count" id="count"></span>
-    <button class="sort" data-sort="near" aria-pressed="true" type="button">가까운 순</button>
+    <button class="sort" data-sort="newest" aria-pressed="true" type="button">최신순</button>
+    <button class="sort" data-sort="near" aria-pressed="false" type="button">가까운 순</button>
     <button class="sort" data-sort="cheap" aria-pressed="false" type="button">월 비용 낮은 순</button>
     <button class="sort" data-sort="wide" aria-pressed="false" type="button">넓은 순</button>
   </section>
@@ -228,7 +229,7 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
   var isMobile = function (p) { return /^(01|050)/.test(digits(p)); };
   var smsHref = function (p, body) { return 'sms:' + digits(p) + (IOS ? '&' : '?') + 'body=' + encodeURIComponent(body); };
 
-  var aesKey = null, listings = [], meta = null, sortKey = store.get('studioSort') || 'near';
+  var aesKey = null, listings = [], meta = null, sortKey = store.get('studioSortV2') || 'newest';
   var lastFetch = 0, loading = false, photoUrls = {};
   var asked = {};
   try { asked = JSON.parse(store.get('studioAsked') || '{}') || {}; } catch (e) { asked = {}; }
@@ -352,6 +353,7 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     var active = listings.filter(function (l) { return l.status !== 'gone'; });
     var gone = listings.filter(function (l) { return l.status === 'gone'; });
     var by = {
+      newest: function (a, b) { return String(b.firstSeen || '').localeCompare(String(a.firstSeen || '')) || num(a.commuteMin, 999) - num(b.commuteMin, 999); },
       near: function (a, b) { return num(a.commuteMin, 999) - num(b.commuteMin, 999); },
       cheap: function (a, b) { return total(a) - total(b) || num(a.commuteMin, 999) - num(b.commuteMin, 999); },
       wide: function (a, b) { return num(b.areaM2, 0) - num(a.areaM2, 0); }
@@ -439,7 +441,7 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
   /* 누르기 */
   document.addEventListener('click', function (e) {
     var s = e.target.closest('.sort');
-    if (s) { sortKey = s.dataset.sort; store.set('studioSort', sortKey); render(); return; }
+    if (s) { sortKey = s.dataset.sort; store.set('studioSortV2', sortKey); render(); return; }
     if (e.target.closest('#refresh')) { refresh(true); return; }
     var a = e.target.closest('[data-ask]');
     if (a) {
