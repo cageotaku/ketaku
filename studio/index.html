@@ -15,9 +15,10 @@
 <link rel="manifest" href="manifest.webmanifest?v=1">
 <link rel="apple-touch-icon" href="icon-180.png?v=1">
 <link rel="icon" type="image/png" href="icon-192.png?v=1">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<!-- 글꼴은 화면을 막지 않게 따로 받는다. 받기 전에는 기기 글꼴로 먼저 보인다 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" crossorigin media="print" onload="this.media='all'">
 <style>
 /* 레이아웃: 한 손으로 넘겨 보는 앱. 카드마다 사진, 가격, 거리, 연락 버튼을 먼저 보여 주고 나머지는 펼쳐서 본다. */
 :root {
@@ -208,6 +209,7 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
 (function () {
   /* 매물 찾기는 오전 10시 30분과 오후 5시 30분. 가장 긴 간격(오후 → 다음 날 오전) 17시간에 여유 2시간을 더한 19시간이 지나면 늦었다고 알린다 */
   var SALT = 'ketaku-studio-v1', ROUNDS = 200000, STALE_HOURS = 19, RECHECK_MS = 5 * 60 * 1000;
+  var PHOTO_CACHE = 'studio-photos-v1', PHOTO_WORKERS = 4;
   var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
   var el = function (id) { return document.getElementById(id); };
@@ -228,22 +230,54 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
   var digits = function (p) { return String(p || '').replace(/\D/g, ''); };
   var isMobile = function (p) { return /^(01|050)/.test(digits(p)); };
   var smsHref = function (p, body) { return 'sms:' + digits(p) + (IOS ? '&' : '?') + 'body=' + encodeURIComponent(body); };
+  var when = function (iso) { var t = Date.parse(iso || ''); return isNaN(t) ? 0 : t; };
 
-  var aesKey = null, listings = [], meta = null, sortKey = store.get('studioSortV2') || 'newest';
-  var lastFetch = 0, loading = false, photoUrls = {};
+  var aesKey = null, keyFromStore = false, keyChecked = false, listings = [], meta = null, boardText = '', sortKey = store.get('studioSortV2') || 'newest';
+  var lastFetch = 0, loading = false, cards = {}, shown = [];
+  var gotKey, hasKey = new Promise(function (r) { gotKey = r; });
   var asked = {};
   try { asked = JSON.parse(store.get('studioAsked') || '{}') || {}; } catch (e) { asked = {}; }
 
-  /* 암호 풀기 */
-  function deriveKey(code) {
+  /* 암호 풀기
+     앱 코드에서 열쇠를 만들려면 20만 번 계산해야 해서 휴대폰에서 시간이 걸린다.
+     한 번 만든 열쇠는 코드와 함께 이 기기에만 저장해 두고, 다음부터는 계산 없이 바로 쓴다. */
+  function toB64(buf) { return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))); }
+  function fromB64(s) { var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+  function makeKey(code) {
     var enc = new TextEncoder();
-    return crypto.subtle.importKey('raw', enc.encode(code), 'PBKDF2', false, ['deriveKey']).then(function (base) {
-      return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(SALT), iterations: ROUNDS },
-        base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    return crypto.subtle.importKey('raw', enc.encode(code), 'PBKDF2', false, ['deriveBits']).then(function (base) {
+      return crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(SALT), iterations: ROUNDS }, base, 256);
+    }).then(function (bits) {
+      return crypto.subtle.importKey('raw', bits, 'AES-GCM', false, ['decrypt']).then(function (k) { return { key: k, raw: toB64(bits) }; });
     });
   }
-  function open(buf) {
-    return crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(buf, 0, 12) }, aesKey, new Uint8Array(buf, 12));
+  /* 열쇠를 바꾸면 아직 못 푼 사진을 다시 받는다. checked는 매물 데이터가 이 열쇠로 풀린 것을 확인했다는 뜻 */
+  function useKey(k, checked) { aesKey = k; keyChecked = !!checked; gotKey(); queuePhotos(shown); }
+  /* 저장된 코드로 열 때: 저장해 둔 열쇠가 있으면 바로 쓰고, 없으면 코드로 만들어 저장한다 */
+  function loadKey(code) {
+    return Promise.resolve().then(function () {
+      return crypto.subtle.importKey('raw', fromB64(store.get('studioKey') || ''), 'AES-GCM', false, ['decrypt']);
+    }).then(function (k) { keyFromStore = true; return k; }, function () {
+      return makeKey(code).then(function (made) { store.set('studioKey', made.raw); keyFromStore = false; return made.key; });
+    }).then(function (k) { useKey(k, false); });
+  }
+  function open(buf, key) {
+    return crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(buf, 0, 12) }, key || aesKey, new Uint8Array(buf, 12));
+  }
+  function wrongCode() { var e = new Error('wrong code'); e.wrongCode = true; return e; }
+  /* 매물 데이터 풀기. 저장해 둔 열쇠로 안 풀리면 코드로 열쇠를 다시 만들어 한 번 더 해 보고, 그래도 안 풀리면 앱 코드가 바뀐 것이다 */
+  function openBoard(buf) {
+    return open(buf).then(null, function () {
+      if (!keyFromStore) throw wrongCode();
+      return makeKey(cleanCode(store.get('studioCode'))).then(function (made) {
+        return open(buf, made.key).then(function (plain) {
+          store.set('studioKey', made.raw);
+          keyFromStore = false;
+          useKey(made.key, true);
+          return plain;
+        });
+      }).then(null, function () { throw wrongCode(); });
+    });
   }
   function fetchBoard() {
     return fetch('data/board.bin?t=' + Date.now(), { cache: 'no-store' }).then(function (r) {
@@ -252,21 +286,71 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     });
   }
 
-  /* 사진: 내려 보거나 넘길 때 기다리지 않도록 처음부터 전부 받아서 푼다 */
+  /* 사진: 내려 보거나 넘길 때 기다리지 않도록 결국 전부 받아서 풀어 두되,
+     화면 순서대로 카드마다 첫 장을 먼저 받고 나머지는 그다음에 받는다(한 번에 4장씩).
+     받은 사진 파일은 기기에 보관돼(sw.js) 다음에 열 때는 다시 받지 않는다. */
+  var photoUrls = {}, photoReady = {}, photoQueue = [], photoRunning = 0;
+  function getPhoto(path) {
+    return fetch(path).then(function (r) {
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.arrayBuffer();
+    });
+  }
   function photoUrl(id) {
     if (!/^[0-9a-f]{32}$/.test(id)) return Promise.reject(new Error('bad id'));
     if (photoUrls[id]) return photoUrls[id];
-    photoUrls[id] = fetch('data/p/' + id + '.bin').then(function (r) {
-      if (!r.ok) throw new Error('http ' + r.status);
-      return r.arrayBuffer();
-    }).then(open).then(function (plain) {
-      return URL.createObjectURL(new Blob([plain], { type: 'image/jpeg' }));
+    var path = 'data/p/' + id + '.bin';
+    photoUrls[id] = hasKey.then(function () { return getPhoto(path); }).then(function (buf) {
+      return open(buf).then(null, function (err) {
+        /* 열쇠가 맞는데도 안 풀리면 기기에 남은 예전 사진이다. 지우고 새로 받는다 */
+        if (!keyChecked || !window.caches) throw err;
+        return caches.open(PHOTO_CACHE).then(function (c) { return c.delete(path); })
+          .then(function () { return getPhoto(path); }).then(function (b) { return open(b); });
+      });
+    }).then(function (plain) {
+      var u = URL.createObjectURL(new Blob([plain], { type: 'image/jpeg' }));
+      photoReady[id] = u;
+      Array.prototype.forEach.call(document.querySelectorAll('img[data-id="' + id + '"]'), function (img) { img.src = u; });
+      return u;
     });
     photoUrls[id].catch(function () { delete photoUrls[id]; });
     return photoUrls[id];
   }
-  function loadPhoto(img) {
-    photoUrl(img.dataset.id).then(function (u) { img.src = u; }, function () {});
+  function fillPhotos(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('img[data-id]'), function (img) {
+      var u = photoReady[img.dataset.id];
+      if (u) img.src = u;
+    });
+  }
+  function queuePhotos(active) {
+    var first = [], rest = [];
+    active.forEach(function (l) {
+      (Array.isArray(l.photos) ? l.photos : []).forEach(function (id, i) { if (!photoReady[id]) (i ? rest : first).push(id); });
+    });
+    photoQueue = first.concat(rest);
+    pump();
+  }
+  function pump() {
+    while (aesKey && photoRunning < PHOTO_WORKERS && photoQueue.length) {
+      var id = photoQueue.shift();
+      if (photoReady[id]) continue;
+      photoRunning++;
+      photoUrl(id).then(null, function () {}).then(function () { photoRunning--; pump(); });
+    }
+  }
+  /* 내려간 매물 사진은 기기 보관함에서도 지운다 */
+  function tidyPhotos() {
+    if (!window.caches) return;
+    var keep = {};
+    listings.forEach(function (l) { (Array.isArray(l.photos) ? l.photos : []).forEach(function (id) { keep[id] = 1; }); });
+    caches.open(PHOTO_CACHE).then(function (c) {
+      return c.keys().then(function (reqs) {
+        return Promise.all(reqs.map(function (r) {
+          var m = /([0-9a-f]{32})\.bin$/.exec(r.url);
+          return m && !keep[m[1]] ? c.delete(r) : null;
+        }));
+      });
+    }).catch(function () {});
   }
 
   /* 화면 그리기 */
@@ -297,7 +381,7 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     var photos = Array.isArray(l.photos) ? l.photos : [];
     var gallery = photos.length
       ? photos.map(function (id, i) {
-          return '<button class="thumb" type="button" data-photo="' + esc(id) + '" aria-label="사진 ' + (i + 1) + ' 크게 보기"><img alt="매물 사진 ' + (i + 1) + '" data-id="' + esc(id) + '"></button>';
+          return '<button class="thumb" type="button" data-photo="' + esc(id) + '" aria-label="사진 ' + (i + 1) + ' 크게 보기"><img alt="매물 사진 ' + (i + 1) + '" data-id="' + esc(id) + '" decoding="async"></button>';
         }).join('')
       : '<div class="noPhoto">올라온 사진이 없습니다</div>';
     var isNew = meta && l.firstRunId && l.firstRunId === meta.runId;
@@ -335,7 +419,8 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     return '<article class="card"><div class="media"><div class="gallery">' + gallery + '</div>' +
       '<div class="photoNote">' + (photos.length ? '옆으로 넘기기 · 눌러서 크게 보기' + (l.photoNote ? ' · ' + esc(l.photoNote) : '') : esc(l.photoNote || '')) + '</div></div>' +
       '<div class="info"><div class="meta">' + (isNew ? '<span class="new">NEW</span>' : '') +
-      '<span>' + esc(l.source) + '</span><span>' + esc(l.postedLabel) + '</span></div>' +
+      '<span>' + esc(l.source) + '</span>' + (dateLabel(l.firstSeen) ? '<span>' + esc(dateLabel(l.firstSeen)) + ' 찾음</span>' : '') +
+      '<span>' + esc(l.postedLabel) + '</span></div>' +
       '<div><p class="price">' + esc(l.deposit) + ' / ' + esc(l.rent) + '<small>만 원</small></p>' +
       '<p class="monthly">한 달 <mark>' + esc(total(l)) + '만 원</mark> <span>' + esc(l.mgmtLabel) + '</span></p></div>' +
       '<p class="addr">' + esc(l.address) + '</p>' +
@@ -353,15 +438,15 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     var active = listings.filter(function (l) { return l.status !== 'gone'; });
     var gone = listings.filter(function (l) { return l.status === 'gone'; });
     var by = {
-      newest: function (a, b) { return String(b.firstSeen || '').localeCompare(String(a.firstSeen || '')) || num(a.commuteMin, 999) - num(b.commuteMin, 999); },
+      newest: function (a, b) { return when(b.firstSeen) - when(a.firstSeen) || num(a.commuteMin, 999) - num(b.commuteMin, 999); },
       near: function (a, b) { return num(a.commuteMin, 999) - num(b.commuteMin, 999); },
       cheap: function (a, b) { return total(a) - total(b) || num(a.commuteMin, 999) - num(b.commuteMin, 999); },
       wide: function (a, b) { return num(b.areaM2, 0) - num(a.areaM2, 0); }
     }[sortKey] || function () { return 0; };
     active.sort(by);
+    shown = active;
     el('count').textContent = '조건에 맞는 매물 ' + active.length + '건';
-    el('list').innerHTML = active.length ? active.map(card).join('')
-      : '<div class="empty">지금은 조건에 맞는 매물이 없습니다. 오전 10시 30분과 오후 5시 30분에 다시 찾아 올립니다.</div>';
+    drawCards(active);
     el('goneBox').hidden = !gone.length;
     el('goneTitle').textContent = '내려간 매물 ' + gone.length + '건';
     el('goneList').innerHTML = gone.map(function (l) {
@@ -370,7 +455,42 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     Array.prototype.forEach.call(document.querySelectorAll('.sort'), function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.sort === sortKey));
     });
-    Array.prototype.forEach.call(document.querySelectorAll('.thumb img'), loadPhoto);
+    queuePhotos(active);
+  }
+
+  /* 카드는 매물마다 한 번 만들어 두고 내용이 바뀐 매물만 새로 만든다.
+     정렬을 바꾸거나 새 결과가 와도 펼쳐 둔 내용, 넘겨 둔 사진, 이미 푼 사진이 그대로 남는다. */
+  function drawCards(active) {
+    var list = el('list');
+    if (!active.length) {
+      cards = {};
+      list.innerHTML = '<div class="empty">지금은 조건에 맞는 매물이 없습니다. 오전 10시 30분과 오후 5시 30분에 다시 찾아 올립니다.</div>';
+      return;
+    }
+    var scrolled = {}, next = {}, frag = document.createDocumentFragment();
+    Object.keys(cards).forEach(function (id) {
+      var g = cards[id].node.querySelector('.gallery');
+      if (g && g.scrollLeft) scrolled[id] = g.scrollLeft;
+    });
+    active.forEach(function (l, i) {
+      var id = String(l.id || 'n' + i), html = card(l), old = cards[id], c = old;
+      if (!old || old.html !== html) {
+        var t = document.createElement('template');
+        t.innerHTML = html;
+        c = { html: html, node: t.content.firstElementChild };
+        if (old && old.node.querySelector('details.more[open]')) c.node.querySelector('details.more').open = true;
+        fillPhotos(c.node);
+      }
+      next[id] = c;
+      frag.appendChild(c.node);
+    });
+    cards = next;
+    list.textContent = '';
+    list.appendChild(frag);
+    Object.keys(scrolled).forEach(function (id) {
+      var g = cards[id] && cards[id].node.querySelector('.gallery');
+      if (g && g.scrollLeft !== scrolled[id]) { g.style.scrollBehavior = 'auto'; g.scrollLeft = scrolled[id]; g.style.scrollBehavior = ''; }
+    });
   }
 
   function show(board) {
@@ -380,45 +500,64 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     render();
   }
 
-  /* 데이터 받기 */
+  /* 데이터 받기: 바뀐 것이 있을 때만 다시 그린다 */
   function refresh(byHand) {
     if (loading || !aesKey) return Promise.resolve();
     loading = true;
     var btn = el('refresh');
     if (byHand) { btn.disabled = true; btn.textContent = '확인 중'; }
-    return fetchBoard().then(open).then(function (plain) {
+    return fetchBoard().then(openBoard).then(function (plain) {
       var text = new TextDecoder().decode(plain);
-      var board = JSON.parse(text);
-      store.set('studioBoard', text);
       lastFetch = Date.now();
-      show(board);
+      if (!keyChecked) { keyChecked = true; queuePhotos(shown); }
+      if (text !== boardText) {
+        var board = JSON.parse(text);
+        store.set('studioBoard', text);
+        boardText = text;
+        show(board);
+        tidyPhotos();
+      } else {
+        renderHead();
+      }
       if (byHand) { btn.textContent = '최신이에요'; setTimeout(function () { btn.textContent = '새로고침'; }, 1500); }
-    }).catch(function () {
+    }).catch(function (err) {
+      if (err && err.wrongCode) {
+        store.del('studioCode');
+        store.del('studioKey');
+        aesKey = null;
+        showGate('앱 코드가 바뀌었어요. 새 코드를 넣어 주세요.');
+        return;
+      }
       if (!meta) el('status').textContent = '매물을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침을 눌러 주세요.';
+      else el('status').textContent = '마지막 확인 ' + (meta.lastRunLabel || '') + ' · 인터넷이 안 돼 저장된 매물을 보여 줘요';
       if (byHand) { btn.textContent = '연결 안 됨'; setTimeout(function () { btn.textContent = '새로고침'; }, 1800); }
     }).then(function () { loading = false; btn.disabled = false; });
   }
 
+  /* 저장해 둔 매물을 바로 그린다. 열쇠나 인터넷을 기다리지 않는다 */
   function start() {
     el('gate').hidden = true;
     el('app').hidden = false;
     var saved = store.get('studioBoard');
-    if (saved) { try { show(JSON.parse(saved)); } catch (e) { store.del('studioBoard'); } }
-    else { el('status').textContent = '매물을 불러오는 중이에요.'; }
-    refresh(false);
+    if (saved && saved !== boardText) {
+      try { show(JSON.parse(saved)); boardText = saved; } catch (e) { store.del('studioBoard'); }
+    }
+    if (!boardText) el('status').textContent = '매물을 불러오는 중이에요.';
   }
 
-  /* 코드 확인: 실제로 데이터가 풀려야 저장한다 */
+  /* 코드 확인: 실제로 데이터가 풀려야 코드와 열쇠를 저장한다. 열쇠 만들기와 데이터 받기를 함께 한다 */
   function tryCode(code) {
-    return deriveKey(code).then(function (k) {
-      return fetchBoard().then(function (buf) {
-        aesKey = k;
-        return open(buf).then(function (plain) {
-          store.set('studioCode', code);
-          store.set('studioBoard', new TextDecoder().decode(plain));
-          return true;
-        }, function (err) { aesKey = null; err.wrongCode = true; throw err; });
-      });
+    return Promise.all([makeKey(code), fetchBoard()]).then(function (got) {
+      var made = got[0];
+      return open(got[1], made.key).then(function (plain) {
+        store.set('studioCode', code);
+        store.set('studioKey', made.raw);
+        store.set('studioBoard', new TextDecoder().decode(plain));
+        keyFromStore = false;
+        lastFetch = Date.now();
+        useKey(made.key, true);
+        return true;
+      }, function () { throw wrongCode(); });
     });
   }
   function showGate(msg) {
@@ -477,11 +616,12 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     if (document.visibilityState === 'visible' && aesKey && Date.now() - lastFetch > RECHECK_MS) refresh(false);
   });
 
-  /* 시작: 주소에 코드가 있으면 쓰고, 저장된 코드가 있으면 바로 연다 */
+  /* 시작: 저장된 코드가 있으면 저장해 둔 매물부터 바로 보여 주고 새 결과를 확인한다. 없으면 주소에 있는 코드를 쓴다 */
   var fromLink = cleanCode(location.hash.slice(1));
   var savedCode = cleanCode(store.get('studioCode'));
   if (savedCode) {
-    deriveKey(savedCode).then(function (k) { aesKey = k; start(); }, function () { showGate(); });
+    start();
+    loadKey(savedCode).then(function () { refresh(false); }, function () { showGate(); });
   } else if (fromLink) {
     tryCode(fromLink).then(start, function (err) {
       showGate(err && err.wrongCode ? '코드가 맞지 않아요. 다시 확인해 주세요.' : '연결이 안 돼요. 인터넷을 확인하고 다시 열어 주세요.');
@@ -489,6 +629,11 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     });
   } else {
     showGate();
+  }
+
+  /* 앱 화면·사진·글꼴을 기기에 보관해 다음부터 더 빨리 열리고, 인터넷이 약하거나 끊겨도 열리게 한다 (sw.js) */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
   }
 })();
 </script>
