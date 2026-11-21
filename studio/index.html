@@ -260,7 +260,8 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
       none: '아직 찾은 결과가 없어요. 첫 찾기가 끝나면 여기에 나옵니다.',
       ask: [
         '어떤 위반인지(무단 증축, 용도 변경, 방 쪼개기 등), 철거·원상복구 명령이나 이행강제금이 걸려 있는지',
-        '전입신고 없이 살아도 되는지, 계약서에 위반건축물임을 적어 줄 수 있는지',
+        '전입신고 없이 살아도 되는지, 계약서에 위반건축물(또는 전입 불가 조건)임을 적어 줄 수 있는지',
+        "'전입신고 불가' 매물은 왜 안 되는지(근린생활시설, 업무용, 전대차 등)와 집주인 동의가 있는지",
         '전입신고를 안 하면 보증금을 지킬 권리(대항력·우선변제)가 없으니 보증금은 적을수록 안전',
         '등기부등본에 근저당·가압류·임차권등기가 있는지',
         '단속으로 나가야 하게 되면 보증금을 바로 돌려받는 조건을 계약서에 넣을 수 있는지',
@@ -488,7 +489,7 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
       '<div><p class="price">' + esc(l.deposit) + ' / ' + esc(l.rent) + '<small>만 원</small></p>' +
       '<p class="monthly">한 달 <mark>' + esc(total(l)) + '만 원</mark> <span>' + esc(l.mgmtLabel) + '</span></p></div>' +
       '<p class="addr">' + esc(l.address) + '</p>' +
-      (l.violation ? '<p class="viol">위반건축물 · ' + esc(l.violation) + '</p>' : '') +
+      (l.violation ? '<p class="viol">' + esc((l.badge || '위반건축물') + ' · ' + l.violation) + '</p>' : '') +
       '<p class="far">' + esc(T.far + (c.headline || '')) + '</p>' +
       '<p class="specs">' + esc(l.specs) + '</p>' + req +
       '<p class="agency">' + esc(l.agency) + '</p>' +
