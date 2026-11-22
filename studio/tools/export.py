@@ -101,7 +101,7 @@ def main():
     else:
         fresh_rooms = False
 
-    added, missing, wanted = 0, [], set()
+    added, resized, missing, wanted = 0, 0, [], set()
     sets = [listings] + ([rooms["listings"]] if rooms else [])
     for docs in sets:
         for doc in docs:
@@ -111,10 +111,16 @@ def main():
                     missing.append(str(pid))
                     continue
                 dest = photo_out / f"{pid}.bin"
-                if not dest.exists():
-                    found = None
-                    if source:
-                        found = next((p for p in source.glob(f"{pid}*") if p.is_file() and p.suffix.lower() != ".bin"), None)
+                found = None
+                if source:
+                    found = next((p for p in source.glob(f"{pid}*") if p.is_file() and p.suffix.lower() != ".bin"), None)
+                if dest.exists():
+                    # 원본을 줄였으면(앱 갱신 스크립트가 긴 쪽 1280px로 줄임) 예전에 크게 암호화해 둔 사진을 줄인 것으로 바꾼다.
+                    # 암호문은 원본보다 28바이트 크다. 2KB 넘게 더 크면 원본이 줄어든 것이다
+                    if found and dest.stat().st_size > found.stat().st_size + 28 + 2048:
+                        dest.write_bytes(seal(key, found.read_bytes()))
+                        resized += 1
+                else:
                     if not found:
                         missing.append(pid)
                         continue
@@ -146,8 +152,8 @@ def main():
     if check["meta"].get("runId") != meta.get("runId"):
         sys.exit("암호화 확인 실패")
     n_rooms = len(rooms["listings"]) if rooms else 0
-    print(f"스튜디오 매물 {len(listings)}건, 방 매물 {n_rooms}건{'' if fresh_rooms or not rooms else '(지난번 내용 유지)'}, 사진 {len(wanted)}장 (새로 {added}, 삭제 {removed}, 없음 {len(missing)})")
-    if same and not added and not removed:
+    print(f"스튜디오 매물 {len(listings)}건, 방 매물 {n_rooms}건{'' if fresh_rooms or not rooms else '(지난번 내용 유지)'}, 사진 {len(wanted)}장 (새로 {added}, 줄여 바꿈 {resized}, 삭제 {removed}, 없음 {len(missing)})")
+    if same and not added and not removed and not resized:
         print("변경 없음")
     for pid in missing:
         print(f"사진 없음: {pid}")

@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="스튜디오 매물">
 <!-- 앱 화면을 고칠 때마다 이 값을 바꾼다. 휴대폰에 떠 있던 예전 화면이 이 값을 보고 새 화면으로 다시 열린다 -->
-<meta name="app-version" content="2026-11-22-2">
+<meta name="app-version" content="2026-11-22-3">
 <meta name="format-detection" content="telephone=no">
 <meta name="robots" content="noindex">
 <title>스튜디오 매물</title>
@@ -217,7 +217,7 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
 (function () {
   /* 매물 찾기는 오전 10시 30분과 오후 5시 30분. 가장 긴 간격(오후 → 다음 날 오전) 17시간에 여유 2시간을 더한 19시간이 지나면 늦었다고 알린다 */
   var SALT = 'ketaku-studio-v1', ROUNDS = 200000, STALE_HOURS = 19, RECHECK_MS = 5 * 60 * 1000;
-  var PHOTO_CACHE = 'studio-photos-v1', PHOTO_WORKERS = 4;
+  var PHOTO_CACHE = 'studio-photos-v2', PHOTO_WORKERS = 3;
   var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
   var el = function (id) { return document.getElementById(id); };

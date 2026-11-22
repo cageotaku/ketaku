@@ -1,6 +1,7 @@
 /* 스튜디오 매물 서비스 워커
    - 앱 화면: 인터넷이 되면 늘 새로 받아 최신 앱을 열고 보관해 둔다. 끊겼거나 3초 안에 안 오면 보관해 둔 화면을 연다.
    - 사진(data/p/*.bin): 사진마다 파일 이름이 달라서 한 번 받은 것은 기기에 두고 다시 받지 않는다. 내려간 사진은 앱이 지운다.
+     사진 보관함 이름(PHOTOS)을 바꾸면 기기마다 사진을 새로 받는다(v2, 2026-11-22: 큰 원본 사진을 긴 쪽 1280px로 줄여 다시 올림).
    - 글꼴: 한 번 받은 것은 기기에 둔다.
    - 매물 데이터(data/board.bin)는 건드리지 않는다. 앱이 늘 새로 받고, 안 되면 저장해 둔 매물을 보여 준다.
    - 보관함 이름(SHELL)을 바꾸면 기기마다 앱 화면을 새로 받아 보관한다(v2, 2026-11-22: 방 탭 전 화면이 남은 기기).
@@ -10,7 +11,7 @@
      self.addEventListener('activate', function () { self.registration.unregister(); });
 */
 'use strict';
-var SHELL = 'studio-shell-v2', PHOTOS = 'studio-photos-v1', FONTS = 'studio-fonts-v1';
+var SHELL = 'studio-shell-v2', PHOTOS = 'studio-photos-v2', FONTS = 'studio-fonts-v1';
 var BASE = new URL('./', self.location.href).pathname;
 var WAIT_MS = 3000;
 
