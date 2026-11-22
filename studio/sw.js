@@ -3,12 +3,14 @@
    - 사진(data/p/*.bin): 사진마다 파일 이름이 달라서 한 번 받은 것은 기기에 두고 다시 받지 않는다. 내려간 사진은 앱이 지운다.
    - 글꼴: 한 번 받은 것은 기기에 둔다.
    - 매물 데이터(data/board.bin)는 건드리지 않는다. 앱이 늘 새로 받고, 안 되면 저장해 둔 매물을 보여 준다.
+   - 보관함 이름(SHELL)을 바꾸면 기기마다 앱 화면을 새로 받아 보관한다(v2, 2026-11-22: 방 탭 전 화면이 남은 기기).
+     앱 화면(index.html)은 app-version 값으로 새 버전을 알아보고 같은 보관함에 새 화면을 넣은 뒤 다시 연다.
    문제가 생기면 이 파일 내용을 아래 두 줄로 바꿔 올리면 다음에 앱을 열 때 꺼진다.
      self.addEventListener('install', function () { self.skipWaiting(); });
      self.addEventListener('activate', function () { self.registration.unregister(); });
 */
 'use strict';
-var SHELL = 'studio-shell-v1', PHOTOS = 'studio-photos-v1', FONTS = 'studio-fonts-v1';
+var SHELL = 'studio-shell-v2', PHOTOS = 'studio-photos-v1', FONTS = 'studio-fonts-v1';
 var BASE = new URL('./', self.location.href).pathname;
 var WAIT_MS = 3000;
 
