@@ -230,6 +230,8 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
     });
   };
   var safeUrl = function (u) { return /^https:\/\//.test(u || '') ? u : ''; };
+  // 직방 www 주소는 휴대폰에서 앱 설치 안내 화면으로 넘어가 매물이 안 보인다. m 주소는 매물을 바로 보여 주고, 직방 앱이 있으면 앱에서 그 매물을 연다
+  var sourceUrl = function (u) { return safeUrl(u).replace(/^https:\/\/(www\.)?zigbang\.com\//, 'https://m.zigbang.com/'); };
   var num = function (v, d) { return typeof v === 'number' ? v : d; };
   var total = function (l) { return num(l.monthlyTotal, num(l.rent, 0) + num(l.mgmt, 0)); };
   var cleanCode = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
@@ -478,7 +480,7 @@ h1 { font: 400 28px/1.15 var(--display); margin: 0; letter-spacing: .01em; }
       return '<a class="act" href="tel:' + esc(digits(p)) + '">전화<small>' + esc(p) + '</small></a>';
     });
     if (mobile && !pending) acts.push('<a class="act" href="' + esc(smsHref(mobile, hello)) + '">문자<small>' + esc(mobile) + '</small></a>');
-    var url = safeUrl(l.url);
+    var url = sourceUrl(l.url);
     if (url) acts.push('<a class="act" href="' + esc(url) + '" target="_blank" rel="noopener">원문 보기<small>' + esc(l.source) + '</small></a>');
 
     return '<article class="card" data-rest="' + esc(photos.slice(1).join(',')) + '"><div class="media"><div class="gallery">' + gallery + '</div>' +
